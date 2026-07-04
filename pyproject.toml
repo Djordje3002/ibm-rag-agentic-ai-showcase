@@ -13,9 +13,16 @@ authors = [{ name = "Djordje" }]
 dependencies = [
     "ibm-watsonx-ai>=1.5.14,<2",
     "pydantic>=2.8,<3",
+    "requests>=2.32,<3",
+    "tenacity>=9,<10",
 ]
 
 [project.optional-dependencies]
+labs = [
+    "matplotlib>=3.10.7,<4",
+    "numpy>=2.3.4,<3",
+    "pillow>=11,<13",
+]
 dev = [
     "pytest>=8,<10",
     "ruff>=0.12,<1",

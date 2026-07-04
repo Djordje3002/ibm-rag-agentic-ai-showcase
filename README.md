@@ -3,16 +3,20 @@
 Hands-on projects from IBM's RAG and Agentic AI coursework, rebuilt as a
 portfolio-ready collection of reproducible AI engineering patterns.
 
-> **Status:** Project 01 is ready. More RAG and agentic workflows will be added
-> as the course progresses.
+> **Status:** Labs 01 and 02 are ready. More RAG and agentic workflows will be
+> added as the course progresses.
 
 ## Projects
 
 | # | Project | Concepts | Status |
 |---|---|---|---|
 | 01 | [Structured restaurant extraction](projects/01-structured-restaurant-extraction.md) | IBM Granite, one-shot prompting, Pydantic validation, JSON self-repair | Complete |
-| 02 | Retrieval-augmented generation | Chunking, embeddings, vector search, grounded answers | Planned |
-| 03 | Agentic AI workflow | Tools, planning, memory, multi-step execution | Planned |
+| 02 | [Multimodal food-data augmentation](projects/02-multimodal-food-data-augmentation.md) | Vision-language models, image captioning, contextual enrichment, resilient downloads | Complete |
+| 03 | Retrieval-augmented generation | Chunking, embeddings, vector search, grounded answers | Planned |
+| 04 | Agentic AI workflow | Tools, planning, memory, multi-step execution | Planned |
+
+A printable, chapter-by-chapter explanation is maintained in
+[the LaTeX lab guide](docs/lab-guide.tex).
 
 ## Project 01: From unstructured text to reliable JSON
 
@@ -53,7 +57,7 @@ cd ibm-rag-agentic-ai-showcase
 
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,labs]"
 
 cp .env.example .env
 # Add your watsonx.ai values, then export them into your shell.
@@ -70,9 +74,11 @@ ignored by Git so that the repository stays small and reproducible.
 ```text
 .
 ├── examples/                    # Course concepts in a step-by-step script
+├── docs/lab-guide.tex           # One evolving explanation of every lab
 ├── projects/                    # Project write-ups and design notes
 ├── src/ibm_rag_agentic_showcase/
 │   ├── restaurant_extraction.py # Schema, prompts, validation, repair pipeline
+│   ├── multimodal_augmentation.py # Vision captioning and data enrichment
 │   └── cli.py                   # Reproducible command-line entry point
 └── tests/                       # Offline unit tests with a fake LLM
 ```
@@ -85,6 +91,13 @@ pytest
 
 The test suite does not call watsonx.ai, so it is fast, deterministic, and does
 not consume inference credits.
+
+To build the lab guide when a LaTeX distribution is installed:
+
+```bash
+pdflatex -output-directory docs docs/lab-guide.tex
+pdflatex -output-directory docs docs/lab-guide.tex
+```
 
 ## Responsible use
 

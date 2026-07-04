@@ -1,0 +1,214 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{listings}
+
+\definecolor{codegray}{HTML}{F4F4F4}
+\definecolor{linkblue}{HTML}{1F5AA6}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=linkblue,
+  urlcolor=linkblue,
+  pdftitle={IBM RAG and Agentic AI Lab Guide},
+  pdfauthor={Djordje}
+}
+
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  showstringspaces=false
+}
+
+\title{IBM RAG and Agentic AI\\Lab-by-Lab Guide}
+\author{Djordje}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This document explains each lab in the IBM RAG and Agentic AI showcase.
+It focuses on the problem each lab solves, how data moves through the
+pipeline, why the main engineering decisions matter, and how each result
+supports the eventual retrieval-augmented and agentic system. The guide is
+updated as new labs are added.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Lab 01: Structured Restaurant Extraction}
+
+\subsection{Goal}
+
+The first lab converts free-form restaurant descriptions into consistent JSON.
+Human-readable prose contains useful details, but fields such as location,
+rating, signature dishes, atmosphere, and shortcomings cannot be filtered or
+indexed reliably until they have a stable structure.
+
+\subsection{Input and output}
+
+The input is the \emph{California Culinary Map}, a text document containing 210
+restaurant descriptions. The output is a JSON array. Each item contains:
+
+\begin{itemize}[nosep]
+  \item name, location, restaurant type, and food style;
+  \item optional rating, price range, and vibe;
+  \item lists of signature items and shortcomings;
+  \item a required environment description; and
+  \item a deterministic \texttt{itemId}.
+\end{itemize}
+
+\subsection{How the lab works}
+
+\begin{enumerate}
+  \item Download the text dataset and split it at blank lines.
+  \item Remove the title block, leaving one paragraph per restaurant.
+  \item Build a one-shot prompt containing the required fields, explicit rules,
+        and one representative input/output example.
+  \item Send the prompt to IBM Granite through watsonx.ai.
+  \item Validate the returned JSON with a Pydantic \texttt{Restaurant} model.
+  \item If validation fails, send the candidate and exact validation errors to
+        a repair prompt.
+  \item Stop after the configured number of repair attempts rather than
+        retrying forever.
+  \item Add stable item IDs and write the validated collection to disk.
+\end{enumerate}
+
+\subsection{Why validation matters}
+
+An LLM can return syntactically valid JSON that still has missing fields or
+incorrect types. Pydantic treats model output as untrusted input. Only records
+that satisfy the schema reach the final dataset. Validation errors also provide
+specific repair instructions, which are more useful than asking the model to
+``try again'' without context.
+
+\subsection{Important engineering decisions}
+
+\begin{itemize}
+  \item Model access is injected as a callable, so tests can use fake responses
+        without network access or inference cost.
+  \item Repair attempts are bounded to prevent infinite loops.
+  \item Downloaded data and generated outputs are excluded from Git.
+  \item Credentials are read from environment variables and are never stored
+        in source code.
+\end{itemize}
+
+\subsection{Run Lab 01}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[dev,labs]"
+export WATSONX_APIKEY="..."
+export WATSONX_PROJECT_ID="..."
+restaurant-extract --limit 3
+\end{lstlisting}
+
+\section{Lab 02: Multimodal Food-Data Augmentation}
+
+\subsection{Goal}
+
+The second lab converts visual information into text that can later be embedded
+and retrieved. It augments recipes with descriptions of finished dishes and
+augments restaurant reviews with captions of attached images.
+
+\subsection{Input and output}
+
+The recipe input contains 109 structured recipe records and a 215 MB archive of
+matching images. Recipe ID \(n\) maps to
+\texttt{synthetic\_recipe\_images/recipe\(n\).png}. Each output recipe gains an
+\texttt{image\_description} field.
+
+The review input contains 10 synthetic user reviews. Its \texttt{images} field
+is a string representation of a URL list, so the lab parses it safely with
+\texttt{ast.literal\_eval}. Each output review gains an
+\texttt{image\_captions} list.
+
+\subsection{How the recipe pipeline works}
+
+\begin{enumerate}
+  \item Download the recipe JSON and image archive when they are not cached.
+  \item Extract the archive only after checking every member for path traversal
+        and symbolic links.
+  \item Resolve the image path from the recipe's integer ID.
+  \item Build a caption prompt using the dish name.
+  \item Encode the image as a base64 data URL with the correct MIME type.
+  \item Ask the vision-language model for a concise caption covering visible
+        ingredients, colors, plating, and style.
+  \item Add the caption as \texttt{image\_description}.
+\end{enumerate}
+
+\subsection{How the review pipeline works}
+
+\begin{enumerate}
+  \item Parse each review's stringified image URL list.
+  \item Download every image with bounded exponential retry.
+  \item Read the review from the live dataset's \texttt{text} field.
+  \item Give both the image and review text to the vision-language model.
+  \item Ask for details that explain the reviewer's preference or experience.
+  \item Store all successful captions in \texttt{image\_captions}; skip an
+        image if its download still fails after all retries.
+\end{enumerate}
+
+\subsection{Why contextual captioning matters}
+
+Pixels alone may show a plate, drink, or dining room without explaining why it
+was meaningful to the reviewer. Supplying review text gives the model grounded
+context. The resulting caption can connect visual evidence---for example,
+greenhouse decor or elaborate plating---to the written experience.
+
+\subsection{Reliability and cost controls}
+
+\begin{itemize}
+  \item One model client is reused instead of being reconstructed per image.
+  \item ZIP extraction rejects unsafe archive members.
+  \item Image MIME types are detected rather than assumed to be JPEG.
+  \item Network retry is exponential, bounded, and limited to request failures.
+  \item The example processes three records by default. Setting
+        \texttt{LAB02\_LIMIT=0} explicitly enables the complete batch.
+\end{itemize}
+
+\subsection{Run Lab 02}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[labs]"
+export WATSONX_APIKEY="..."
+export WATSONX_PROJECT_ID="..."
+
+# Open this file as Python notebook cells:
+examples/02_multimodal_food_data_augmentation.py
+\end{lstlisting}
+
+\section{How the Labs Connect}
+
+Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
+records with information extracted from images. Together they prepare a corpus
+with stable identifiers, structured metadata, natural-language descriptions,
+and visual captions.
+
+The next retrieval-augmented generation lab can chunk and embed these fields,
+store them in a vector index, retrieve relevant evidence for a user's question,
+and produce grounded recommendations. Later agentic labs can add planning and
+tools around that retrieval layer.
+
+\section{Repository and Reproducibility}
+
+The complete source is available at:
+
+\begin{center}
+\url{https://github.com/Djordje3002/ibm-rag-agentic-ai-showcase}
+\end{center}
+
+Unit tests use fake model functions, so validation, prompt flow, path handling,
+and augmentation logic can be checked without cloud credentials. Actual model
+inference remains an explicit, credentialed step.
+
+\end{document}
