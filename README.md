@@ -1,0 +1,104 @@
+# IBM RAG & Agentic AI Showcase
+
+Hands-on projects from IBM's RAG and Agentic AI coursework, rebuilt as a
+portfolio-ready collection of reproducible AI engineering patterns.
+
+> **Status:** Project 01 is ready. More RAG and agentic workflows will be added
+> as the course progresses.
+
+## Projects
+
+| # | Project | Concepts | Status |
+|---|---|---|---|
+| 01 | [Structured restaurant extraction](projects/01-structured-restaurant-extraction.md) | IBM Granite, one-shot prompting, Pydantic validation, JSON self-repair | Complete |
+| 02 | Retrieval-augmented generation | Chunking, embeddings, vector search, grounded answers | Planned |
+| 03 | Agentic AI workflow | Tools, planning, memory, multi-step execution | Planned |
+
+## Project 01: From unstructured text to reliable JSON
+
+The first project converts free-form restaurant descriptions into typed,
+machine-readable records. It uses an IBM Granite model for extraction, validates
+every response with Pydantic, and asks the model to repair malformed output
+within a bounded retry loop.
+
+```mermaid
+flowchart LR
+    A["Restaurant descriptions"] --> B["One-shot extraction prompt"]
+    B --> C["IBM Granite on watsonx.ai"]
+    C --> D{"Pydantic validation"}
+    D -->|Valid| E["Structured JSON dataset"]
+    D -->|Invalid| F["Targeted repair prompt"]
+    F --> C
+```
+
+### What this demonstrates
+
+- Constrained generation with an explicit JSON schema
+- One-shot prompting with a representative example
+- Runtime validation rather than trusting model output
+- Automatic repair informed by exact validation errors
+- Bounded retries and clear failure behavior
+- Separation between model access, extraction logic, and file I/O
+
+## Quick start
+
+Prerequisites:
+
+- Python 3.11+
+- An IBM watsonx.ai project and API key, or the IBM Skills Network lab runtime
+
+```bash
+git clone https://github.com/Djordje3002/ibm-rag-agentic-ai-showcase.git
+cd ibm-rag-agentic-ai-showcase
+
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+
+cp .env.example .env
+# Add your watsonx.ai values, then export them into your shell.
+
+restaurant-extract --limit 3
+```
+
+By default, the command downloads the course dataset and writes the validated
+records to `data/processed/structured_restaurant_data.json`. Generated data is
+ignored by Git so that the repository stays small and reproducible.
+
+## Repository layout
+
+```text
+.
+├── examples/                    # Course concepts in a step-by-step script
+├── projects/                    # Project write-ups and design notes
+├── src/ibm_rag_agentic_showcase/
+│   ├── restaurant_extraction.py # Schema, prompts, validation, repair pipeline
+│   └── cli.py                   # Reproducible command-line entry point
+└── tests/                       # Offline unit tests with a fake LLM
+```
+
+## Run the checks
+
+```bash
+pytest
+```
+
+The test suite does not call watsonx.ai, so it is fast, deterministic, and does
+not consume inference credits.
+
+## Responsible use
+
+Model output is treated as untrusted input. The pipeline validates all records
+before saving them, caps repair attempts, and raises a clear error if a response
+still does not satisfy the schema. API keys belong in environment variables and
+must never be committed.
+
+## Acknowledgements
+
+Built while completing IBM coursework in retrieval-augmented generation and
+agentic AI. The restaurant descriptions are provided by the IBM Skills Network
+course dataset and are downloaded at runtime rather than redistributed here.
+
+## License
+
+Code in this repository is available under the [MIT License](LICENSE).
