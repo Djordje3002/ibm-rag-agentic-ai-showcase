@@ -3,8 +3,8 @@
 Hands-on projects from IBM's RAG and Agentic AI coursework, rebuilt as a
 portfolio-ready collection of reproducible AI engineering patterns.
 
-> **Status:** Labs 01 through 05 are ready. More RAG and agentic workflows will
-> be added as the course progresses.
+> **Status:** Labs 01 through 07 are ready. The next step is connecting the
+> specialist agents into a collaborative workflow.
 
 ## Projects
 
@@ -15,8 +15,9 @@ portfolio-ready collection of reproducible AI engineering patterns.
 | 03 | [Safe restaurant database](projects/03-safe-restaurant-database.md) | CRUD, LLM-assisted entry, typed edits, backups, unit testing | Complete |
 | 04 | [Multimodal vector index](projects/04-multimodal-vector-index.md) | Sentence-Transformers, CLIP, LangChain documents, persistent Chroma collections | Complete |
 | 05 | [Similarity retrieval with metadata filtering](projects/05-similarity-retrieval.md) | Text similarity, image similarity, metadata filters, result inspection | Complete |
-| 06 | Retrieval-augmented generation | Chunking, vector search, grounded answers | Planned |
-| 07 | Agentic AI workflow | Tools, planning, memory, multi-step execution | Planned |
+| 06 | [Multimodal fusion and ranking](projects/06-multimodal-fusion-ranking.md) | Score normalization, weighted fusion, filtered candidate pools, reranking | Complete |
+| 07 | [Specialized recommendation agents](projects/07-specialized-recommendation-agents.md) | Six single-purpose agents, ReAct, few-shot prompts, task contracts | Complete |
+| 08 | Collaborative agent workflow | Orchestration, dependencies, tools, shared state | Planned |
 
 A printable, chapter-by-chapter explanation is maintained in
 [the LaTeX lab guide](docs/lab-guide.tex).
@@ -85,6 +86,8 @@ ignored by Git so that the repository stays small and reproducible.
 │   ├── restaurant_database.py   # Safe CRUD and terminal interface
 │   ├── multimodal_vector_index.py # Text/image embeddings and Chroma
 │   ├── similarity_retrieval.py  # Filtered text and image retrieval
+│   ├── multimodal_fusion.py      # Cross-modal score fusion and reranking
+│   ├── specialized_agents.py     # Standalone agent specifications
 │   └── cli.py                   # Reproducible command-line entry point
 └── tests/                       # Offline unit tests with a fake LLM
 ```

@@ -460,6 +460,116 @@ unit vectors. They verify collection loading, location filtering, fallback to
 existing metadata values, cuisine-filtered image retrieval, query-index bounds,
 and empty-result formatting.
 
+\section{Lab 06: Multimodal Similarity Fusion and Ranking}
+
+\subsection{Goal}
+
+The sixth lab combines candidates retrieved from the restaurant-text and
+recipe-image collections into one recommendation feed. Because the two models
+produce unrelated score distributions, raw distances are not compared
+directly.
+
+\subsection{Fusion procedure}
+
+\begin{enumerate}
+  \item Retrieve restaurant articles with a Sentence-Transformers query.
+  \item Retrieve recipe images with the CLIP text encoder.
+  \item Convert cosine distance to similarity using \(s = 1 - d\).
+  \item Min-max normalize similarities inside each modality.
+  \item Multiply text scores by \(w_{\mathrm{text}}\) and image scores by
+        \(w_{\mathrm{image}}\).
+  \item Mix the candidates and sort by descending fused score.
+\end{enumerate}
+
+Weights are normalized to sum to one. Negative weights and an all-zero
+configuration are invalid.
+
+\subsection{Constant-score handling}
+
+Min-max normalization normally divides by the difference between maximum and
+minimum. A single-result filtered pool has a zero difference. Lab 06 assigns a
+normalized score of 1.0 to constant nonempty pools, preserving valid candidates
+instead of erasing their contribution.
+
+\subsection{Metadata-filtered fusion}
+
+Demo 2 constrains articles by an existing location and images by their source.
+A strict filter can reduce either candidate pool below the requested size.
+Fusion uses the available results and never pads the ranking with nonmatching
+records.
+
+\subsection{Weight tuning}
+
+Demo 3 compares article-heavy, balanced, and image-heavy settings. Each output
+row displays its modality score and weighted fused score, making the ranking
+shift inspectable.
+
+\subsection{Interpretation}
+
+This is weighted candidate-pool fusion. Restaurant articles and recipe images
+do not share an entity identifier, so the lab does not claim to fuse features
+of the same object. True entity-level fusion would require an explicit
+cross-domain relationship.
+
+\section{Lab 07: Design Specialized Recommendation Agents}
+
+\subsection{Goal}
+
+The seventh lab defines six standalone specialists that will later form a
+collaborative recommendation system. It focuses on clear responsibilities and
+prompt/task contracts rather than workflow orchestration.
+
+\subsection{The six specialists}
+
+\begin{itemize}
+  \item \textbf{User Profile Generator}: extracts preferences, restrictions,
+        budget, and dining patterns.
+  \item \textbf{RAG Retriever}: obtains grounded restaurant, recipe, and image
+        evidence from the multimodal index.
+  \item \textbf{Food Trend Analyst}: evaluates current and emerging culinary
+        signals.
+  \item \textbf{Food Style Expert}: analyzes cuisines, cooking methods, regional
+        traditions, and flavor profiles.
+  \item \textbf{Nutrition Expert}: screens allergens, dietary compatibility,
+        health goals, and unknowns.
+  \item \textbf{Recommendation Expert}: synthesizes specialist evidence into a
+        ranked final recommendation.
+\end{itemize}
+
+\subsection{Role, goal, and backstory}
+
+Every agent has a concise role, a specific goal, and a backstory that calibrates
+expertise and tone. An operating contract requires each agent to stay within
+its specialty, distinguish evidence from assumptions, and produce output usable
+by another specialist.
+
+\subsection{Prompt patterns}
+
+Agents that will gather evidence or use tools receive ReAct-style instructions.
+They are told to use actions and observations internally while returning concise
+conclusions and evidence rather than hidden chain-of-thought. Profile extraction
+and recommendation synthesis use few-shot examples because stable output
+patterns are especially valuable there.
+
+\subsection{Task contracts}
+
+Each task declares a description, expected output, context keys, and dependency
+IDs. The dependencies document the future workflow without executing it. A
+catalog validator checks uniqueness and ensures every dependency can be
+resolved.
+
+\subsection{LangChain construction}
+
+The \texttt{create\_specialist\_agent} function passes a model, optional tools,
+and the rendered system prompt to modern LangChain
+\texttt{create\_agent}. Each result is a standalone graph. A deterministic fake
+chat model smoke-tests the Food Style Expert without network access.
+
+\subsection{Screenshot artifact}
+
+The required Food Style Expert goal screenshot is stored as
+\texttt{docs/screenshots/M3L1\_food\_style\_expert\_goal.jpg}.
+
 \section{How the Labs Connect}
 
 Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
@@ -467,9 +577,11 @@ records with information extracted from images. Lab 03 adds a safe human
 interface for maintaining the structured restaurant collection. Lab 04 embeds
 the text and pixels and stores them in persistent, retrieval-ready indexes.
 Lab 05 queries those indexes with optional business constraints and makes the
-retrieved evidence inspectable. Together they provide stable identifiers,
-structured metadata, visual captions, controlled updates, and semantic
-retrieval.
+retrieved evidence inspectable. Lab 06 combines candidates through transparent
+weighted ranking. Lab 07 defines the specialist intelligence that will interpret
+those results. Together they provide stable identifiers, structured metadata,
+visual captions, controlled updates, semantic retrieval, fusion, and modular
+agent roles.
 
 The next retrieval-augmented generation lab can chunk and embed these fields,
 store them in a vector index, retrieve relevant evidence for a user's question,

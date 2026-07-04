@@ -140,6 +140,30 @@ def retrieve_images_by_image(
     return _to_hits(results)
 
 
+def retrieve_images_by_text(
+    store: Chroma,
+    clip_embedder: TextEmbeddingModel,
+    query: str,
+    *,
+    k: int = 5,
+    where: Mapping[str, Any] | None = None,
+) -> list[RetrievalHit]:
+    """Search recipe images with CLIP text embedded in the image space."""
+
+    if not query.strip():
+        raise ValueError("Image text query cannot be blank")
+    if k < 1:
+        raise ValueError("k must be at least 1")
+
+    query_vector = clip_embedder.embed_texts([query])[0]
+    results = store.similarity_search_by_vector_with_relevance_scores(
+        embedding=query_vector,
+        k=k,
+        filter=dict(where) if where else None,
+    )
+    return _to_hits(results)
+
+
 def metadata_values(store: Chroma, field: str) -> list[Any]:
     """Return sorted distinct scalar values available for a metadata field."""
 
