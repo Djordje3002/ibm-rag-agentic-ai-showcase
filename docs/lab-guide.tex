@@ -386,14 +386,90 @@ Offline tests replace both neural models with deterministic unit-vector
 embedders, allowing document construction, shape validation, Chroma persistence,
 and retrieval to be tested without downloading model weights.
 
+\section{Lab 05: Similarity Retrieval with Metadata Filtering}
+
+\subsection{Goal}
+
+The fifth lab uses the persistent vector collections from Lab 04. It combines
+nearest-neighbor search with exact metadata constraints and demonstrates both
+text-to-text and image-to-image retrieval.
+
+\subsection{Opening the existing database}
+
+The application opens \texttt{restaurant\_articles} and
+\texttt{food\_images} from \texttt{data/indexes/multimodal}. Missing collection
+names are treated as errors instead of silently creating empty collections. It
+also checks that both collections contain records before loading the neural
+models.
+
+The implementation uses the public \texttt{langchain-chroma} interface.
+It avoids direct access to the private \texttt{\_collection} attribute, which
+is not part of LangChain's compatibility contract.
+
+\subsection{Demo 1: Restaurant similarity without filtering}
+
+The query ``cozy restaurant with noodles and warm atmosphere'' is encoded with
+the same normalized 384-dimensional Sentence-Transformers model used by Lab 04.
+Chroma compares the query vector with \texttt{restaurant\_articles} and returns
+the five closest documents with their cosine distances and metadata.
+
+\subsection{Demo 2: Restaurant similarity with a location filter}
+
+The second query asks for handmade pasta and a romantic dinner. A
+\texttt{location} constraint is applied alongside vector similarity. The
+example prefers Pasadena but first reads the values stored in the collection.
+If Pasadena is absent, it selects a real location rather than issuing a filter
+that can never match.
+
+Metadata filtering is a hard constraint: Chroma searches for nearest neighbors
+only among records whose metadata satisfies the filter. A valid query may
+therefore return fewer than the requested five records or no records at all.
+
+\subsection{Demo 3: Image-to-image similarity}
+
+The user selects an indexed recipe through \texttt{QUERY\_INDEX}. The program
+reads its \texttt{image\_path} metadata, displays a thumbnail, and embeds the
+pixels with the normalized 512-dimensional CLIP image encoder. That vector
+queries \texttt{food\_images}.
+
+An optional cuisine filter uses the selected image's own cuisine, ensuring the
+constraint exists. Retrieved metadata points back to the source images, so the
+result thumbnails can be inspected visually.
+
+\subsection{Result interpretation}
+
+Each result is represented as a \texttt{RetrievalHit} containing an ID, document
+text, metadata, and distance. The formatter displays cuisine, location, source,
+distance, and a shortened content preview. Because the collections use cosine
+distance, lower values indicate closer matches.
+
+\subsection{Run Lab 05}
+
+\begin{lstlisting}[language=bash]
+# Build the prerequisite index.
+build-multimodal-index --limit 10
+
+# Open as Python notebook cells.
+examples/05_similarity_retrieval_with_metadata_filtering.py
+\end{lstlisting}
+
+\subsection{Testing}
+
+Offline tests construct real temporary Chroma collections with deterministic
+unit vectors. They verify collection loading, location filtering, fallback to
+existing metadata values, cuisine-filtered image retrieval, query-index bounds,
+and empty-result formatting.
+
 \section{How the Labs Connect}
 
 Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
 records with information extracted from images. Lab 03 adds a safe human
 interface for maintaining the structured restaurant collection. Lab 04 embeds
 the text and pixels and stores them in persistent, retrieval-ready indexes.
-Together they provide stable identifiers, structured metadata, visual captions,
-controlled updates, and semantic retrieval.
+Lab 05 queries those indexes with optional business constraints and makes the
+retrieved evidence inspectable. Together they provide stable identifiers,
+structured metadata, visual captions, controlled updates, and semantic
+retrieval.
 
 The next retrieval-augmented generation lab can chunk and embed these fields,
 store them in a vector index, retrieve relevant evidence for a user's question,

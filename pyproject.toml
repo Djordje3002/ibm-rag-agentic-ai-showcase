@@ -25,6 +25,7 @@ labs = [
 ]
 vector = [
     "chromadb>=1.5.9,<2",
+    "langchain-chroma>=1.1,<2",
     "langchain-core>=1.4.8,<2",
     "numpy>=2.3.4,<3",
     "pillow>=11,<13",

@@ -3,7 +3,7 @@
 Hands-on projects from IBM's RAG and Agentic AI coursework, rebuilt as a
 portfolio-ready collection of reproducible AI engineering patterns.
 
-> **Status:** Labs 01 through 04 are ready. More RAG and agentic workflows will
+> **Status:** Labs 01 through 05 are ready. More RAG and agentic workflows will
 > be added as the course progresses.
 
 ## Projects
@@ -14,8 +14,9 @@ portfolio-ready collection of reproducible AI engineering patterns.
 | 02 | [Multimodal food-data augmentation](projects/02-multimodal-food-data-augmentation.md) | Vision-language models, image captioning, contextual enrichment, resilient downloads | Complete |
 | 03 | [Safe restaurant database](projects/03-safe-restaurant-database.md) | CRUD, LLM-assisted entry, typed edits, backups, unit testing | Complete |
 | 04 | [Multimodal vector index](projects/04-multimodal-vector-index.md) | Sentence-Transformers, CLIP, LangChain documents, persistent Chroma collections | Complete |
-| 05 | Retrieval-augmented generation | Chunking, vector search, grounded answers | Planned |
-| 06 | Agentic AI workflow | Tools, planning, memory, multi-step execution | Planned |
+| 05 | [Similarity retrieval with metadata filtering](projects/05-similarity-retrieval.md) | Text similarity, image similarity, metadata filters, result inspection | Complete |
+| 06 | Retrieval-augmented generation | Chunking, vector search, grounded answers | Planned |
+| 07 | Agentic AI workflow | Tools, planning, memory, multi-step execution | Planned |
 
 A printable, chapter-by-chapter explanation is maintained in
 [the LaTeX lab guide](docs/lab-guide.tex).
@@ -83,6 +84,7 @@ ignored by Git so that the repository stays small and reproducible.
 │   ├── multimodal_augmentation.py # Vision captioning and data enrichment
 │   ├── restaurant_database.py   # Safe CRUD and terminal interface
 │   ├── multimodal_vector_index.py # Text/image embeddings and Chroma
+│   ├── similarity_retrieval.py  # Filtered text and image retrieval
 │   └── cli.py                   # Reproducible command-line entry point
 └── tests/                       # Offline unit tests with a fake LLM
 ```
