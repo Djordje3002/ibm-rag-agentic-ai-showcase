@@ -187,12 +187,101 @@ export WATSONX_PROJECT_ID="..."
 examples/02_multimodal_food_data_augmentation.py
 \end{lstlisting}
 
+\section{Lab 03: Safe Restaurant Database}
+
+\subsection{Goal}
+
+The third lab turns Lab 01's structured JSON into an interactive terminal
+application. A user can browse restaurants, view details, add a restaurant from
+natural-language prose, edit an existing record, or delete a record. The main
+challenge is not the menu itself; it is preserving schema validity and data
+safety while accepting human input.
+
+\subsection{How the application is organized}
+
+The lab separates three responsibilities:
+
+\begin{itemize}
+  \item \textbf{Storage} loads validated records, creates backups, and replaces
+        the JSON file atomically.
+  \item \textbf{Database operations} implement add, update, delete, and stable
+        ID allocation without depending on terminal input.
+  \item \textbf{Terminal interface} displays the menu, parses user input,
+        confirms writes, and reports errors without crashing.
+\end{itemize}
+
+This separation makes the important behavior testable without calling a model
+or manually interacting with the menu.
+
+\subsection{Browse and view operations}
+
+Browse and view are read-only. The application loads every JSON object as a
+Pydantic \texttt{RestaurantRecord}. If an existing record is malformed, loading
+fails visibly rather than allowing corrupted data to propagate. Read-only use
+does not initialize watsonx.ai and does not require cloud credentials.
+
+\subsection{Adding a restaurant}
+
+\begin{enumerate}
+  \item The user enters write mode and types \texttt{yes} to confirm.
+  \item The user supplies a natural-language restaurant description.
+  \item The application lazily initializes the Lab 01 Granite extractor.
+  \item Granite returns structured JSON, which the Lab 01 schema validates and
+        repairs with a bounded retry loop when necessary.
+  \item The database chooses one plus the highest existing \texttt{itemId}.
+  \item The current JSON is backed up and the expanded collection is written
+        through a temporary file.
+\end{enumerate}
+
+Using the highest ID avoids a subtle collision. An ID based only on list length
+can reuse an existing value after an earlier record has been deleted.
+
+\subsection{Editing a restaurant}
+
+Terminal input begins as text, but database fields do not all have string types.
+The lab converts ratings to floating-point values, price ranges to integers,
+\texttt{null} to \texttt{None}, and comma-separated or JSON-formatted list
+fields to lists of strings. It then validates the \emph{complete} updated record
+before saving. The stable \texttt{itemId} is not editable.
+
+\subsection{Deleting a restaurant}
+
+Deletion uses a one-based restaurant number for the user and checks that the
+corresponding zero-based index exists. The write-mode confirmation occurs before
+the mutation. A cancelled or invalid deletion leaves both the in-memory data
+and file unchanged.
+
+\subsection{Backup and atomic replacement}
+
+Immediately before a successful write, the current JSON file is copied to a
+\texttt{.bak} path. New JSON is first written to a temporary file and then moved
+over the database path with an atomic replacement. This prevents a partially
+written main file if serialization or writing fails midway.
+
+\subsection{Run Lab 03}
+
+\begin{lstlisting}[language=bash]
+# First create a small structured dataset with Lab 01.
+restaurant-extract --limit 5
+
+# Then open the interactive database.
+restaurant-db \
+  --file data/processed/structured_restaurant_data.json
+\end{lstlisting}
+
+\subsection{Offline testing}
+
+Tests use temporary directories and a fake restaurant extractor. They verify
+backup behavior, stable ID generation, typed edits, forbidden field changes,
+deletion, and cancellation. No test consumes inference credits.
+
 \section{How the Labs Connect}
 
 Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
-records with information extracted from images. Together they prepare a corpus
-with stable identifiers, structured metadata, natural-language descriptions,
-and visual captions.
+records with information extracted from images. Lab 03 adds a safe human
+interface for maintaining the structured restaurant collection. Together they
+prepare a corpus with stable identifiers, structured metadata,
+natural-language descriptions, visual captions, and controlled updates.
 
 The next retrieval-augmented generation lab can chunk and embed these fields,
 store them in a vector index, retrieve relevant evidence for a user's question,

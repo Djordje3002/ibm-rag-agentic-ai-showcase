@@ -30,6 +30,7 @@ dev = [
 
 [project.scripts]
 restaurant-extract = "ibm_rag_agentic_showcase.cli:main"
+restaurant-db = "ibm_rag_agentic_showcase.restaurant_database:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
