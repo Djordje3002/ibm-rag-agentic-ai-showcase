@@ -275,13 +275,125 @@ Tests use temporary directories and a fake restaurant extractor. They verify
 backup behavior, stable ID generation, typed edits, forbidden field changes,
 deletion, and cancellation. No test consumes inference credits.
 
+\section{Lab 04: Construct a Multimodal Vector Index}
+
+\subsection{Goal}
+
+The fourth lab converts the restaurant text and recipe images prepared by
+earlier labs into persistent semantic-search indexes. It uses one embedding
+model specialized for sentences and a second model that aligns images and text.
+The result is a retrieval layer that can find restaurants by meaning and recipe
+images by visual or natural-language similarity.
+
+\subsection{Required environment}
+
+The vector workflow uses PyTorch in CPU mode, LangChain Core, Chroma,
+Sentence-Transformers, Hugging Face Transformers, Pillow, and NumPy. Linux users
+can install the CPU-specific PyTorch wheel before the repository's vector
+extra:
+
+\begin{lstlisting}[language=bash]
+pip install torch \
+  --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[vector]"
+\end{lstlisting}
+
+The first execution downloads the embedding models. This is independent of
+watsonx.ai and does not require an API key.
+
+\subsection{Source data verification}
+
+The restaurant source is
+\texttt{data/processed/structured\_restaurant\_data.json}, produced by Lab 01.
+The recipe source is
+\texttt{data/processed/lab02/augmented\_food\_recipe.json}, produced by Lab 02.
+Recipe images come from the extracted
+\texttt{synthetic\_recipe\_images} directory. The program prints the loaded
+record counts before model initialization so missing or incomplete prerequisites
+are visible early.
+
+\subsection{Retrieval-ready LangChain documents}
+
+Every restaurant becomes a LangChain \texttt{Document}. Its page content joins
+the name, location, type, food style, rating, price range, signature dishes,
+vibe, environment, and shortcomings. Its metadata stores the stable item ID,
+name, location, restaurant type, food style, and source.
+
+Every recipe image also becomes a \texttt{Document}. Its page content combines
+the recipe name, cuisine, generated image description, and ingredients. Its
+metadata stores the recipe ID, name, cuisine, absolute image path, and source.
+Only scalar metadata values are used because those can be filtered directly by
+Chroma.
+
+\subsection{Text embeddings}
+
+The restaurant collection uses
+\texttt{sentence-transformers/all-MiniLM-L6-v2}. The model produces
+384-dimensional sentence embeddings. Encoding enables
+\texttt{normalize\_embeddings}, and every batch is independently checked to
+have shape \(N \times 384\), finite values, and unit L2 norm.
+
+\subsection{Image embeddings}
+
+The food-image collection uses
+\texttt{openai/clip-vit-base-patch32}. Its image projection produces
+512-dimensional vectors. Images are opened with Pillow, converted to RGB,
+processed in CPU batches, and passed through CLIP under inference mode. PyTorch
+then L2-normalizes each vector.
+
+CLIP also has a text encoder in the same 512-dimensional space. A text query
+such as ``a colorful vegetarian dish'' can therefore retrieve recipe images
+without generating captions at query time.
+
+\subsection{Why the vector spaces remain separate}
+
+Sentence-Transformers and CLIP were trained with different objectives and
+produce vectors with different dimensions. A 384-dimensional restaurant vector
+cannot be compared meaningfully with a 512-dimensional CLIP vector. Lab 04
+therefore creates two collections:
+
+\begin{itemize}
+  \item \texttt{restaurant\_articles}: normalized 384-D text vectors;
+  \item \texttt{food\_images}: normalized 512-D CLIP image vectors.
+\end{itemize}
+
+Both collections use cosine distance and live in the same persistent Chroma
+directory.
+
+\subsection{Persistent indexing}
+
+The build validates dimensions when each model initializes and again before
+every Chroma upsert. IDs derive from stable source identifiers, so reruns update
+the same records. Rebuild mode deletes only the two Lab 04 collections and
+leaves unrelated collections untouched. Generated index files live below
+\texttt{data/indexes/}, which Git ignores.
+
+\subsection{Run Lab 04}
+
+\begin{lstlisting}[language=bash]
+# Small CPU smoke test
+build-multimodal-index --limit 10
+
+# Full persistent index
+build-multimodal-index
+\end{lstlisting}
+
+\subsection{Verification}
+
+After indexing, the program checks the collection counts. The example also
+performs a restaurant text query and a cross-modal text-to-image query.
+Offline tests replace both neural models with deterministic unit-vector
+embedders, allowing document construction, shape validation, Chroma persistence,
+and retrieval to be tested without downloading model weights.
+
 \section{How the Labs Connect}
 
 Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
 records with information extracted from images. Lab 03 adds a safe human
-interface for maintaining the structured restaurant collection. Together they
-prepare a corpus with stable identifiers, structured metadata,
-natural-language descriptions, visual captions, and controlled updates.
+interface for maintaining the structured restaurant collection. Lab 04 embeds
+the text and pixels and stores them in persistent, retrieval-ready indexes.
+Together they provide stable identifiers, structured metadata, visual captions,
+controlled updates, and semantic retrieval.
 
 The next retrieval-augmented generation lab can chunk and embed these fields,
 store them in a vector index, retrieve relevant evidence for a user's question,

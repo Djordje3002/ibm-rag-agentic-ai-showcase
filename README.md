@@ -3,7 +3,7 @@
 Hands-on projects from IBM's RAG and Agentic AI coursework, rebuilt as a
 portfolio-ready collection of reproducible AI engineering patterns.
 
-> **Status:** Labs 01 through 03 are ready. More RAG and agentic workflows will
+> **Status:** Labs 01 through 04 are ready. More RAG and agentic workflows will
 > be added as the course progresses.
 
 ## Projects
@@ -13,8 +13,9 @@ portfolio-ready collection of reproducible AI engineering patterns.
 | 01 | [Structured restaurant extraction](projects/01-structured-restaurant-extraction.md) | IBM Granite, one-shot prompting, Pydantic validation, JSON self-repair | Complete |
 | 02 | [Multimodal food-data augmentation](projects/02-multimodal-food-data-augmentation.md) | Vision-language models, image captioning, contextual enrichment, resilient downloads | Complete |
 | 03 | [Safe restaurant database](projects/03-safe-restaurant-database.md) | CRUD, LLM-assisted entry, typed edits, backups, unit testing | Complete |
-| 04 | Retrieval-augmented generation | Chunking, embeddings, vector search, grounded answers | Planned |
-| 05 | Agentic AI workflow | Tools, planning, memory, multi-step execution | Planned |
+| 04 | [Multimodal vector index](projects/04-multimodal-vector-index.md) | Sentence-Transformers, CLIP, LangChain documents, persistent Chroma collections | Complete |
+| 05 | Retrieval-augmented generation | Chunking, vector search, grounded answers | Planned |
+| 06 | Agentic AI workflow | Tools, planning, memory, multi-step execution | Planned |
 
 A printable, chapter-by-chapter explanation is maintained in
 [the LaTeX lab guide](docs/lab-guide.tex).
@@ -81,6 +82,7 @@ ignored by Git so that the repository stays small and reproducible.
 │   ├── restaurant_extraction.py # Schema, prompts, validation, repair pipeline
 │   ├── multimodal_augmentation.py # Vision captioning and data enrichment
 │   ├── restaurant_database.py   # Safe CRUD and terminal interface
+│   ├── multimodal_vector_index.py # Text/image embeddings and Chroma
 │   └── cli.py                   # Reproducible command-line entry point
 └── tests/                       # Offline unit tests with a fake LLM
 ```
@@ -93,6 +95,17 @@ pytest
 
 The test suite does not call watsonx.ai, so it is fast, deterministic, and does
 not consume inference credits.
+
+Lab 04 uses larger local ML dependencies. Install a CPU build of PyTorch first
+on Linux, then install the vector extra:
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[vector,dev]"
+```
+
+On macOS, the regular `pip install -e ".[vector,dev]"` command installs the
+native PyTorch build.
 
 To build the lab guide when a LaTeX distribution is installed:
 

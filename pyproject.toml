@@ -23,6 +23,15 @@ labs = [
     "numpy>=2.3.4,<3",
     "pillow>=11,<13",
 ]
+vector = [
+    "chromadb>=1.5.9,<2",
+    "langchain-core>=1.4.8,<2",
+    "numpy>=2.3.4,<3",
+    "pillow>=11,<13",
+    "sentence-transformers>=5.6,<6",
+    "torch>=2.12,<3",
+    "transformers>=5.13,<6",
+]
 dev = [
     "pytest>=8,<10",
     "ruff>=0.12,<1",
@@ -31,6 +40,7 @@ dev = [
 [project.scripts]
 restaurant-extract = "ibm_rag_agentic_showcase.cli:main"
 restaurant-db = "ibm_rag_agentic_showcase.restaurant_database:main"
+build-multimodal-index = "ibm_rag_agentic_showcase.multimodal_vector_index:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
