@@ -570,6 +570,69 @@ chat model smoke-tests the Food Style Expert without network access.
 The required Food Style Expert goal screenshot is stored as
 \texttt{docs/screenshots/M3L1\_food\_style\_expert\_goal.jpg}.
 
+\section{Lab 08: Multi-Agent Recommendation Workflow}
+
+\subsection{Goal}
+
+The eighth lab connects the six standalone specialists in a stateful LangGraph.
+Profile generation and retrieval run sequentially. Trend, food-style, and
+nutrition analysis fan out in parallel. Recommendation synthesis begins only
+after all three branches converge.
+
+\subsection{Shared state}
+
+\texttt{AgentState} tracks user input, profile, grounded restaurant and recipe
+candidates, specialist analyses, recommendations, errors, and a phase marker.
+Nodes return partial state updates instead of mutating the incoming dictionary.
+Parallel branches write distinct fields. The error list has an append reducer,
+allowing multiple failures from one super-step to be preserved.
+
+\subsection{Purpose of workflow\_step}
+
+\texttt{workflow\_step} records the latest completed phase: start, profile
+generated, candidates retrieved, analysis complete, or complete. It supports
+progress displays, logging, debugging, conditional routing, and future
+checkpoint/resume behavior. Graph edges remain the source of execution order;
+the field is observable state rather than the workflow engine.
+
+\subsection{Grounded RAG phase}
+
+The production candidate retriever queries the persistent Lab 04 collections
+with a query built from the structured user profile. This replaces simulated
+retrieval with source IDs, metadata, content, and distances from the actual
+vector database.
+
+\subsection{Native parallel analysis}
+
+Three edges leave the retrieval node, placing trend, style, and nutrition nodes
+in the same LangGraph super-step. A fan-in edge waits for all three nodes before
+marking analysis complete and invoking synthesis. No manual thread pool or
+shared-dictionary mutation is required.
+
+\subsection{Structured specialist output}
+
+Dedicated Pydantic models validate profile, trend, style, nutrition, and final
+recommendation objects. A failed specialist adds a scoped error and safe empty
+output. This lets the graph expose partial failure and still reach a final,
+inspectable state.
+
+\subsection{Recommendation evaluation}
+
+The evaluation function reports restaurant and recipe counts, extracted
+restrictions and cuisines, reasoning coverage, dietary-note coverage, warnings,
+and a simple structural score. The score is a completeness smoke test, not a
+claim of nutritional safety or subjective recommendation quality.
+
+\subsection{Run Lab 08}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[agents,openai,dev]"
+python examples/08_multi_agent_recommendation_workflow.py
+\end{lstlisting}
+
+The default example uses deterministic fakes. A production run can inject
+\texttt{ChatOpenAI} and the real multimodal candidate retriever.
+
 \section{How the Labs Connect}
 
 Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
@@ -579,9 +642,10 @@ the text and pixels and stores them in persistent, retrieval-ready indexes.
 Lab 05 queries those indexes with optional business constraints and makes the
 retrieved evidence inspectable. Lab 06 combines candidates through transparent
 weighted ranking. Lab 07 defines the specialist intelligence that will interpret
-those results. Together they provide stable identifiers, structured metadata,
-visual captions, controlled updates, semantic retrieval, fusion, and modular
-agent roles.
+those results. Lab 08 connects the specialists through sequential and parallel
+state transitions and evaluates their final output. Together they provide
+stable identifiers, structured metadata, visual captions, controlled updates,
+semantic retrieval, fusion, modular agent roles, and orchestration.
 
 The next retrieval-augmented generation lab can chunk and embed these fields,
 store them in a vector index, retrieve relevant evidence for a user's question,
