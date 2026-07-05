@@ -3,8 +3,8 @@
 Hands-on projects from IBM's RAG and Agentic AI coursework, rebuilt as a
 portfolio-ready collection of reproducible AI engineering patterns.
 
-> **Status:** Labs 01 through 08 are ready. The next step is adding an
-> interactive chatbot interface.
+> **Status:** Labs 01 through 09 are ready, including the interactive Gradio
+> recommendation and catalog interface.
 
 ## Projects
 
@@ -18,7 +18,7 @@ portfolio-ready collection of reproducible AI engineering patterns.
 | 06 | [Multimodal fusion and ranking](projects/06-multimodal-fusion-ranking.md) | Score normalization, weighted fusion, filtered candidate pools, reranking | Complete |
 | 07 | [Specialized recommendation agents](projects/07-specialized-recommendation-agents.md) | Six single-purpose agents, ReAct, few-shot prompts, task contracts | Complete |
 | 08 | [Multi-agent recommendation workflow](projects/08-multi-agent-recommendation-workflow.md) | LangGraph state, sequential/parallel phases, synthesis, evaluation | Complete |
-| 09 | Interactive recommendation chatbot | Gradio, sessions, streaming, user feedback | Planned |
+| 09 | [Interactive recommendation chatbot](projects/09-gradio-recommendation-chatbot.md) | Gradio 6, intent routing, session preferences, workflow integration, catalog CRUD | Complete |
 
 A printable, chapter-by-chapter explanation is maintained in
 [the LaTeX lab guide](docs/lab-guide.tex).
@@ -90,6 +90,7 @@ ignored by Git so that the repository stays small and reproducible.
 │   ├── multimodal_fusion.py      # Cross-modal score fusion and reranking
 │   ├── specialized_agents.py     # Standalone agent specifications
 │   ├── recommendation_workflow.py # Stateful multi-agent orchestration
+│   ├── chatbot_interface.py      # Gradio chat service and catalog UI
 │   └── cli.py                   # Reproducible command-line entry point
 └── tests/                       # Offline unit tests with a fake LLM
 ```
@@ -102,6 +103,15 @@ pytest
 
 The test suite does not call watsonx.ai, so it is fast, deterministic, and does
 not consume inference credits.
+
+To run the Lab 09 interface locally:
+
+```bash
+pip install -e ".[agents,openai,ui,dev]"
+python examples/09_gradio_recommendation_chatbot.py --launch
+```
+
+The demo binds to `127.0.0.1` and does not create a public sharing link.
 
 Lab 04 uses larger local ML dependencies. Install a CPU build of PyTorch first
 on Linux, then install the vector extra:

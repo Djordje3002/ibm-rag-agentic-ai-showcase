@@ -633,6 +633,74 @@ python examples/08_multi_agent_recommendation_workflow.py
 The default example uses deterministic fakes. A production run can inject
 \texttt{ChatOpenAI} and the real multimodal candidate retriever.
 
+\section{Lab 09: Gradio Recommendation Chatbot}
+
+\subsection{Goal}
+
+The ninth lab gives the Lab 08 workflow a browser interface. Users can request
+restaurants, recipes, or both in natural language. The interface routes the
+message, extracts preferences, invokes the recommendation graph, and renders
+reasoning and dietary notes as readable Markdown.
+
+\subsection{Dependency compatibility}
+
+The original assignment pins Gradio 4.29 and an older LangChain stack. Those
+packages predate the LangGraph APIs used in Lab 08. The repository instead
+defines a \texttt{ui} extra for Gradio 6 and keeps the modern \texttt{agents}
+and \texttt{openai} extras. Gradio resolves compatible FastAPI, Starlette, and
+Jinja versions rather than forcing mutually incompatible transitive pins.
+
+\subsection{Intent and preference interpretation}
+
+Every message is classified as restaurant, recipe, both, clarification, or
+database. A structured preference profile contains cuisines, dietary
+restrictions, occasion, price, flavors, and other requirements. The production
+interpreter accepts a LangChain chat model. A deterministic rule-based
+interpreter supports offline tests and a zero-cost demonstration.
+
+\subsection{Session state}
+
+\texttt{gr.State} stores accumulated preferences and the last intent for one
+browser session. Newly stated cuisines, restrictions, and flavors are merged
+without duplicates. More specific occasion and price values replace unspecified
+ones. Gradio removes session state when the browser session ends; the chat does
+not persist user preferences to the catalog.
+
+\subsection{Workflow integration}
+
+\texttt{RecommendationChatService} receives any compiled workflow with an
+\texttt{invoke} method. It creates the standard Lab 08 initial state and passes
+the current request plus known session preferences into the graph. The final
+restaurant and recipe records are filtered according to intent and displayed
+with cuisine, reasoning, and dietary notes. Recorded agent errors produce a
+visible provisional-result warning.
+
+\subsection{Catalog management}
+
+Separate tabs add validated restaurant and recipe contributions. The catalog
+uses Pydantic models, a process lock, and atomic file replacement. Updates and
+deletions require an exact stable ID and an explicit confirmation checkbox.
+Catalog edits change source data only; the interface tells the operator to
+rebuild the multimodal index before expecting new records in retrieval.
+
+\subsection{Local deployment}
+
+The example binds to the loopback address and uses \texttt{share=False}, so it
+does not expose catalog write controls through a public Gradio tunnel. A real
+deployment should add authentication, authorization, rate limits, durable
+storage, logging, and CSRF-aware deployment controls.
+
+\subsection{Run Lab 09}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[agents,openai,ui,dev]"
+python examples/09_gradio_recommendation_chatbot.py
+python examples/09_gradio_recommendation_chatbot.py --launch
+\end{lstlisting}
+
+The required preference-extraction screenshot is stored as
+\texttt{docs/screenshots/M3L3\_preference\_extraction\_test.jpg}.
+
 \section{How the Labs Connect}
 
 Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
@@ -643,9 +711,11 @@ Lab 05 queries those indexes with optional business constraints and makes the
 retrieved evidence inspectable. Lab 06 combines candidates through transparent
 weighted ranking. Lab 07 defines the specialist intelligence that will interpret
 those results. Lab 08 connects the specialists through sequential and parallel
-state transitions and evaluates their final output. Together they provide
-stable identifiers, structured metadata, visual captions, controlled updates,
-semantic retrieval, fusion, modular agent roles, and orchestration.
+state transitions and evaluates their final output. Lab 09 exposes that graph
+through a conversational interface and adds guarded contribution forms.
+Together they provide stable identifiers, structured metadata, visual captions,
+controlled updates, semantic retrieval, fusion, modular agent roles,
+orchestration, and an interactive delivery layer.
 
 The next retrieval-augmented generation lab can chunk and embed these fields,
 store them in a vector index, retrieve relevant evidence for a user's question,
