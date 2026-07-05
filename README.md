@@ -3,8 +3,8 @@
 Hands-on projects from IBM's RAG and Agentic AI coursework, rebuilt as a
 portfolio-ready collection of reproducible AI engineering patterns.
 
-> **Status:** Labs 01 through 09 are ready, including the interactive Gradio
-> recommendation and catalog interface.
+> **Status:** Labs 01 through 10 are ready, from structured extraction through
+> an interoperable MCP data server.
 
 ## Projects
 
@@ -19,6 +19,7 @@ portfolio-ready collection of reproducible AI engineering patterns.
 | 07 | [Specialized recommendation agents](projects/07-specialized-recommendation-agents.md) | Six single-purpose agents, ReAct, few-shot prompts, task contracts | Complete |
 | 08 | [Multi-agent recommendation workflow](projects/08-multi-agent-recommendation-workflow.md) | LangGraph state, sequential/parallel phases, synthesis, evaluation | Complete |
 | 09 | [Interactive recommendation chatbot](projects/09-gradio-recommendation-chatbot.md) | Gradio 6, intent routing, session preferences, workflow integration, catalog CRUD | Complete |
+| 10 | [Connoisseur MCP data server](projects/10-connoisseur-mcp-server.md) | FastMCP, resources, typed tools, stdio transport, protocol testing | Complete |
 
 A printable, chapter-by-chapter explanation is maintained in
 [the LaTeX lab guide](docs/lab-guide.tex).
@@ -91,7 +92,10 @@ ignored by Git so that the repository stays small and reproducible.
 │   ├── specialized_agents.py     # Standalone agent specifications
 │   ├── recommendation_workflow.py # Stateful multi-agent orchestration
 │   ├── chatbot_interface.py      # Gradio chat service and catalog UI
+│   ├── mcp_server.py             # Culinary resource and search tools
 │   └── cli.py                   # Reproducible command-line entry point
+├── server.py                    # Course-compatible MCP server entry point
+├── test.py                      # Independent stdio MCP client verification
 └── tests/                       # Offline unit tests with a fake LLM
 ```
 
@@ -112,6 +116,24 @@ python examples/09_gradio_recommendation_chatbot.py --launch
 ```
 
 The demo binds to `127.0.0.1` and does not create a public sharing link.
+
+To prepare and verify the Lab 10 MCP server:
+
+```bash
+pip install -e ".[mcp,dev]"
+
+curl -L "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/_nbA_KMj1n7yBrpfz8rYkg/California-Culinary-Map.txt" \
+  -o data/raw/California-Culinary-Map.txt
+curl -L "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/lxfhTQUrDCCD_JSMmr92VA/structured-restaurant-data.json" \
+  -o data/raw/structured-restaurant-data.json
+curl -L "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/oMqDIzTBNFT7KKJ0GW4-Cw/augmented-user-review.json" \
+  -o data/raw/augmented-user-review.json
+
+python test.py
+```
+
+The client starts `server.py` on demand over stdio, discovers its components,
+and calls `get_restaurant_info` with the partial name `Iron`.
 
 Lab 04 uses larger local ML dependencies. Install a CPU build of PyTorch first
 on Linux, then install the vector extra:

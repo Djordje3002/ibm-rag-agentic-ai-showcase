@@ -44,6 +44,9 @@ openai = [
 ui = [
     "gradio>=6.19,<7",
 ]
+mcp = [
+    "fastmcp==3.1.0",
+]
 dev = [
     "pytest>=8,<10",
     "ruff>=0.12,<1",
@@ -53,6 +56,7 @@ dev = [
 restaurant-extract = "ibm_rag_agentic_showcase.cli:main"
 restaurant-db = "ibm_rag_agentic_showcase.restaurant_database:main"
 build-multimodal-index = "ibm_rag_agentic_showcase.multimodal_vector_index:main"
+connoisseur-mcp = "ibm_rag_agentic_showcase.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

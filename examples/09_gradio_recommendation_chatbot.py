@@ -70,9 +70,7 @@ for test_message in (
 # This is the completed version of the assignment's first blank cell.
 
 # %%
-test_message = (
-    "I love spicy Thai food, I am vegetarian, and want a date night under $$"
-)
+test_message = "I love spicy Thai food, I am vegetarian, and want a date night under $$"
 preferences = extract_preferences(test_message)
 print("Extracted preferences:")
 for key, value in preferences.items():
@@ -215,9 +213,7 @@ chat_service = RecommendationChatService(workflow)
 # The second assignment blank is completed here with a recipe request.
 
 # %%
-restaurant_message = (
-    "I'm looking for healthy vegetarian restaurants for a date night"
-)
+restaurant_message = "I'm looking for healthy vegetarian restaurants for a date night"
 restaurant_response, session = chat_service.respond(restaurant_message)
 print("\nRestaurant request:")
 print(restaurant_response)

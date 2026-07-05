@@ -701,6 +701,68 @@ python examples/09_gradio_recommendation_chatbot.py --launch
 The required preference-extraction screenshot is stored as
 \texttt{docs/screenshots/M3L3\_preference\_extraction\_test.jpg}.
 
+\section{Lab 10: Connoisseur MCP Data Server}
+
+\subsection{Goal}
+
+The tenth lab converts data and search behavior from earlier modules into a
+Model Context Protocol server. MCP clients can discover the same resource and
+tools without knowing how the files are stored or rewriting the search logic.
+
+\subsection{Server surface}
+
+The server is named \texttt{Connoisseur-Server}. It exposes the raw California
+Culinary Map through the resource URI
+\texttt{culinary-map://california}. Three tools are registered:
+
+\begin{itemize}
+  \item \texttt{get\_restaurant\_info}: bidirectional partial-name lookup in
+        structured restaurant records;
+  \item \texttt{recommend\_by\_vibe}: structured vibe/description lookup plus
+        raw-map paragraph search; and
+  \item \texttt{get\_review}: retrieval of one augmented review with image
+        description and visit date.
+\end{itemize}
+
+\subsection{Data layer}
+
+\texttt{CulinaryDataStore} resolves the raw map, structured restaurant JSON, and
+augmented review JSON from \texttt{data/raw}. The
+\texttt{IBM\_MCP\_DATA\_DIR} environment variable can select another directory.
+Loaders reject missing files and JSON values that are not arrays of objects.
+
+\subsection{Search contracts}
+
+Every tool returns an indented JSON string. Successful restaurant lookup
+includes \texttt{status}, \texttt{count}, and \texttt{results}. Failed
+restaurant and review lookups return \texttt{status: not\_found} and an
+actionable message. Empty query strings are rejected so they cannot accidentally
+match every record.
+
+The vibe tool uses two-pass lexical retrieval rather than claiming vector
+semantics. Structured fields provide precise matches; raw paragraphs recover
+descriptive wording that was not represented by a formal tag.
+
+\subsection{Protocol verification}
+
+Unit tests use FastMCP's in-memory client to discover all three tools and the
+resource, call a tool, and read the raw map. The separate \texttt{test.py}
+program uses the lower-level MCP client to start \texttt{server.py} as a child
+process over stdio. It initializes the session, verifies discovery, calls
+\texttt{get\_restaurant\_info} with \texttt{Iron}, and prints the returned
+\texttt{Iron \& Embers} record.
+
+\subsection{Run Lab 10}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[mcp,dev]"
+# Download the three course files using the README commands.
+python test.py
+\end{lstlisting}
+
+The required successful-query screenshot is stored as
+\texttt{docs/screenshots/M4L1\_Configure\_Tools\_Data\_MCP\_Server.jpg}.
+
 \section{How the Labs Connect}
 
 Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
@@ -712,10 +774,12 @@ retrieved evidence inspectable. Lab 06 combines candidates through transparent
 weighted ranking. Lab 07 defines the specialist intelligence that will interpret
 those results. Lab 08 connects the specialists through sequential and parallel
 state transitions and evaluates their final output. Lab 09 exposes that graph
-through a conversational interface and adds guarded contribution forms.
+through a conversational interface and adds guarded contribution forms. Lab 10
+packages the shared culinary data layer as a discoverable MCP service for future
+agents.
 Together they provide stable identifiers, structured metadata, visual captions,
 controlled updates, semantic retrieval, fusion, modular agent roles,
-orchestration, and an interactive delivery layer.
+orchestration, an interactive delivery layer, and a standard tool protocol.
 
 The next retrieval-augmented generation lab can chunk and embed these fields,
 store them in a vector index, retrieve relevant evidence for a user's question,

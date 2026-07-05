@@ -133,9 +133,7 @@ class RuleBasedInterpreter:
             cuisine for cuisine in self.cuisines if cuisine.casefold() in lowered
         ]
         restrictions = [
-            restriction
-            for restriction in self.restrictions
-            if restriction in lowered
+            restriction for restriction in self.restrictions if restriction in lowered
         ]
         flavors = [flavor for flavor in self.flavors if flavor in lowered]
 
@@ -591,9 +589,7 @@ def build_gradio_app(
         description: str,
     ) -> tuple[str, str]:
         try:
-            entry = catalog.add_restaurant(
-                name, cuisine, price, location, description
-            )
+            entry = catalog.add_restaurant(name, cuisine, price, location, description)
             return (
                 f"✅ Added **{entry.name}** with ID `{entry.id}`. Rebuild the "
                 "multimodal index before retrieval.",
@@ -716,9 +712,7 @@ def build_gradio_app(
                 ["Easy", "Medium", "Hard"], value="Easy", label="Difficulty"
             )
             recipe_time = gr.Textbox(label="Preparation time", value="30 minutes")
-            recipe_ingredients = gr.Textbox(
-                label="Ingredients (one per line)", lines=6
-            )
+            recipe_ingredients = gr.Textbox(label="Ingredients (one per line)", lines=6)
             recipe_instructions = gr.Textbox(
                 label="Instructions (one step per line)", lines=6
             )
