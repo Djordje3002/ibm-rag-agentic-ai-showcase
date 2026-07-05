@@ -9,8 +9,16 @@ __pycache__/
 build/
 dist/
 
+# LaTeX build intermediates (the final PDF may still be committed)
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc
+
 # Downloaded source data and generated outputs
 data/raw/*
 data/processed/*
+data/indexes/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+!data/indexes/.gitkeep

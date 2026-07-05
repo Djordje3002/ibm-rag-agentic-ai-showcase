@@ -1,0 +1,943 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{listings}
+
+\definecolor{codegray}{HTML}{F4F4F4}
+\definecolor{linkblue}{HTML}{1F5AA6}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=linkblue,
+  urlcolor=linkblue,
+  pdftitle={IBM RAG and Agentic AI Lab Guide},
+  pdfauthor={Djordje}
+}
+
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  showstringspaces=false
+}
+
+\title{IBM RAG and Agentic AI\\Lab-by-Lab Guide}
+\author{Djordje}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This document explains each lab in the IBM RAG and Agentic AI showcase.
+It focuses on the problem each lab solves, how data moves through the
+pipeline, why the main engineering decisions matter, and how each result
+supports the eventual retrieval-augmented and agentic system. The guide is
+updated as new labs are added.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Lab 01: Structured Restaurant Extraction}
+
+\subsection{Goal}
+
+The first lab converts free-form restaurant descriptions into consistent JSON.
+Human-readable prose contains useful details, but fields such as location,
+rating, signature dishes, atmosphere, and shortcomings cannot be filtered or
+indexed reliably until they have a stable structure.
+
+\subsection{Input and output}
+
+The input is the \emph{California Culinary Map}, a text document containing 210
+restaurant descriptions. The output is a JSON array. Each item contains:
+
+\begin{itemize}[nosep]
+  \item name, location, restaurant type, and food style;
+  \item optional rating, price range, and vibe;
+  \item lists of signature items and shortcomings;
+  \item a required environment description; and
+  \item a deterministic \texttt{itemId}.
+\end{itemize}
+
+\subsection{How the lab works}
+
+\begin{enumerate}
+  \item Download the text dataset and split it at blank lines.
+  \item Remove the title block, leaving one paragraph per restaurant.
+  \item Build a one-shot prompt containing the required fields, explicit rules,
+        and one representative input/output example.
+  \item Send the prompt to IBM Granite through watsonx.ai.
+  \item Validate the returned JSON with a Pydantic \texttt{Restaurant} model.
+  \item If validation fails, send the candidate and exact validation errors to
+        a repair prompt.
+  \item Stop after the configured number of repair attempts rather than
+        retrying forever.
+  \item Add stable item IDs and write the validated collection to disk.
+\end{enumerate}
+
+\subsection{Why validation matters}
+
+An LLM can return syntactically valid JSON that still has missing fields or
+incorrect types. Pydantic treats model output as untrusted input. Only records
+that satisfy the schema reach the final dataset. Validation errors also provide
+specific repair instructions, which are more useful than asking the model to
+``try again'' without context.
+
+\subsection{Important engineering decisions}
+
+\begin{itemize}
+  \item Model access is injected as a callable, so tests can use fake responses
+        without network access or inference cost.
+  \item Repair attempts are bounded to prevent infinite loops.
+  \item Downloaded data and generated outputs are excluded from Git.
+  \item Credentials are read from environment variables and are never stored
+        in source code.
+\end{itemize}
+
+\subsection{Run Lab 01}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[dev,labs]"
+export WATSONX_APIKEY="..."
+export WATSONX_PROJECT_ID="..."
+restaurant-extract --limit 3
+\end{lstlisting}
+
+\section{Lab 02: Multimodal Food-Data Augmentation}
+
+\subsection{Goal}
+
+The second lab converts visual information into text that can later be embedded
+and retrieved. It augments recipes with descriptions of finished dishes and
+augments restaurant reviews with captions of attached images.
+
+\subsection{Input and output}
+
+The recipe input contains 109 structured recipe records and a 215 MB archive of
+matching images. Recipe ID \(n\) maps to
+\texttt{synthetic\_recipe\_images/recipe\(n\).png}. Each output recipe gains an
+\texttt{image\_description} field.
+
+The review input contains 10 synthetic user reviews. Its \texttt{images} field
+is a string representation of a URL list, so the lab parses it safely with
+\texttt{ast.literal\_eval}. Each output review gains an
+\texttt{image\_captions} list.
+
+\subsection{How the recipe pipeline works}
+
+\begin{enumerate}
+  \item Download the recipe JSON and image archive when they are not cached.
+  \item Extract the archive only after checking every member for path traversal
+        and symbolic links.
+  \item Resolve the image path from the recipe's integer ID.
+  \item Build a caption prompt using the dish name.
+  \item Encode the image as a base64 data URL with the correct MIME type.
+  \item Ask the vision-language model for a concise caption covering visible
+        ingredients, colors, plating, and style.
+  \item Add the caption as \texttt{image\_description}.
+\end{enumerate}
+
+\subsection{How the review pipeline works}
+
+\begin{enumerate}
+  \item Parse each review's stringified image URL list.
+  \item Download every image with bounded exponential retry.
+  \item Read the review from the live dataset's \texttt{text} field.
+  \item Give both the image and review text to the vision-language model.
+  \item Ask for details that explain the reviewer's preference or experience.
+  \item Store all successful captions in \texttt{image\_captions}; skip an
+        image if its download still fails after all retries.
+\end{enumerate}
+
+\subsection{Why contextual captioning matters}
+
+Pixels alone may show a plate, drink, or dining room without explaining why it
+was meaningful to the reviewer. Supplying review text gives the model grounded
+context. The resulting caption can connect visual evidence---for example,
+greenhouse decor or elaborate plating---to the written experience.
+
+\subsection{Reliability and cost controls}
+
+\begin{itemize}
+  \item One model client is reused instead of being reconstructed per image.
+  \item ZIP extraction rejects unsafe archive members.
+  \item Image MIME types are detected rather than assumed to be JPEG.
+  \item Network retry is exponential, bounded, and limited to request failures.
+  \item The example processes three records by default. Setting
+        \texttt{LAB02\_LIMIT=0} explicitly enables the complete batch.
+\end{itemize}
+
+\subsection{Run Lab 02}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[labs]"
+export WATSONX_APIKEY="..."
+export WATSONX_PROJECT_ID="..."
+
+# Open this file as Python notebook cells:
+examples/02_multimodal_food_data_augmentation.py
+\end{lstlisting}
+
+\section{Lab 03: Safe Restaurant Database}
+
+\subsection{Goal}
+
+The third lab turns Lab 01's structured JSON into an interactive terminal
+application. A user can browse restaurants, view details, add a restaurant from
+natural-language prose, edit an existing record, or delete a record. The main
+challenge is not the menu itself; it is preserving schema validity and data
+safety while accepting human input.
+
+\subsection{How the application is organized}
+
+The lab separates three responsibilities:
+
+\begin{itemize}
+  \item \textbf{Storage} loads validated records, creates backups, and replaces
+        the JSON file atomically.
+  \item \textbf{Database operations} implement add, update, delete, and stable
+        ID allocation without depending on terminal input.
+  \item \textbf{Terminal interface} displays the menu, parses user input,
+        confirms writes, and reports errors without crashing.
+\end{itemize}
+
+This separation makes the important behavior testable without calling a model
+or manually interacting with the menu.
+
+\subsection{Browse and view operations}
+
+Browse and view are read-only. The application loads every JSON object as a
+Pydantic \texttt{RestaurantRecord}. If an existing record is malformed, loading
+fails visibly rather than allowing corrupted data to propagate. Read-only use
+does not initialize watsonx.ai and does not require cloud credentials.
+
+\subsection{Adding a restaurant}
+
+\begin{enumerate}
+  \item The user enters write mode and types \texttt{yes} to confirm.
+  \item The user supplies a natural-language restaurant description.
+  \item The application lazily initializes the Lab 01 Granite extractor.
+  \item Granite returns structured JSON, which the Lab 01 schema validates and
+        repairs with a bounded retry loop when necessary.
+  \item The database chooses one plus the highest existing \texttt{itemId}.
+  \item The current JSON is backed up and the expanded collection is written
+        through a temporary file.
+\end{enumerate}
+
+Using the highest ID avoids a subtle collision. An ID based only on list length
+can reuse an existing value after an earlier record has been deleted.
+
+\subsection{Editing a restaurant}
+
+Terminal input begins as text, but database fields do not all have string types.
+The lab converts ratings to floating-point values, price ranges to integers,
+\texttt{null} to \texttt{None}, and comma-separated or JSON-formatted list
+fields to lists of strings. It then validates the \emph{complete} updated record
+before saving. The stable \texttt{itemId} is not editable.
+
+\subsection{Deleting a restaurant}
+
+Deletion uses a one-based restaurant number for the user and checks that the
+corresponding zero-based index exists. The write-mode confirmation occurs before
+the mutation. A cancelled or invalid deletion leaves both the in-memory data
+and file unchanged.
+
+\subsection{Backup and atomic replacement}
+
+Immediately before a successful write, the current JSON file is copied to a
+\texttt{.bak} path. New JSON is first written to a temporary file and then moved
+over the database path with an atomic replacement. This prevents a partially
+written main file if serialization or writing fails midway.
+
+\subsection{Run Lab 03}
+
+\begin{lstlisting}[language=bash]
+# First create a small structured dataset with Lab 01.
+restaurant-extract --limit 5
+
+# Then open the interactive database.
+restaurant-db \
+  --file data/processed/structured_restaurant_data.json
+\end{lstlisting}
+
+\subsection{Offline testing}
+
+Tests use temporary directories and a fake restaurant extractor. They verify
+backup behavior, stable ID generation, typed edits, forbidden field changes,
+deletion, and cancellation. No test consumes inference credits.
+
+\section{Lab 04: Construct a Multimodal Vector Index}
+
+\subsection{Goal}
+
+The fourth lab converts the restaurant text and recipe images prepared by
+earlier labs into persistent semantic-search indexes. It uses one embedding
+model specialized for sentences and a second model that aligns images and text.
+The result is a retrieval layer that can find restaurants by meaning and recipe
+images by visual or natural-language similarity.
+
+\subsection{Required environment}
+
+The vector workflow uses PyTorch in CPU mode, LangChain Core, Chroma,
+Sentence-Transformers, Hugging Face Transformers, Pillow, and NumPy. Linux users
+can install the CPU-specific PyTorch wheel before the repository's vector
+extra:
+
+\begin{lstlisting}[language=bash]
+pip install torch \
+  --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[vector]"
+\end{lstlisting}
+
+The first execution downloads the embedding models. This is independent of
+watsonx.ai and does not require an API key.
+
+\subsection{Source data verification}
+
+The restaurant source is
+\texttt{data/processed/structured\_restaurant\_data.json}, produced by Lab 01.
+The recipe source is
+\texttt{data/processed/lab02/augmented\_food\_recipe.json}, produced by Lab 02.
+Recipe images come from the extracted
+\texttt{synthetic\_recipe\_images} directory. The program prints the loaded
+record counts before model initialization so missing or incomplete prerequisites
+are visible early.
+
+\subsection{Retrieval-ready LangChain documents}
+
+Every restaurant becomes a LangChain \texttt{Document}. Its page content joins
+the name, location, type, food style, rating, price range, signature dishes,
+vibe, environment, and shortcomings. Its metadata stores the stable item ID,
+name, location, restaurant type, food style, and source.
+
+Every recipe image also becomes a \texttt{Document}. Its page content combines
+the recipe name, cuisine, generated image description, and ingredients. Its
+metadata stores the recipe ID, name, cuisine, absolute image path, and source.
+Only scalar metadata values are used because those can be filtered directly by
+Chroma.
+
+\subsection{Text embeddings}
+
+The restaurant collection uses
+\texttt{sentence-transformers/all-MiniLM-L6-v2}. The model produces
+384-dimensional sentence embeddings. Encoding enables
+\texttt{normalize\_embeddings}, and every batch is independently checked to
+have shape \(N \times 384\), finite values, and unit L2 norm.
+
+\subsection{Image embeddings}
+
+The food-image collection uses
+\texttt{openai/clip-vit-base-patch32}. Its image projection produces
+512-dimensional vectors. Images are opened with Pillow, converted to RGB,
+processed in CPU batches, and passed through CLIP under inference mode. PyTorch
+then L2-normalizes each vector.
+
+CLIP also has a text encoder in the same 512-dimensional space. A text query
+such as ``a colorful vegetarian dish'' can therefore retrieve recipe images
+without generating captions at query time.
+
+\subsection{Why the vector spaces remain separate}
+
+Sentence-Transformers and CLIP were trained with different objectives and
+produce vectors with different dimensions. A 384-dimensional restaurant vector
+cannot be compared meaningfully with a 512-dimensional CLIP vector. Lab 04
+therefore creates two collections:
+
+\begin{itemize}
+  \item \texttt{restaurant\_articles}: normalized 384-D text vectors;
+  \item \texttt{food\_images}: normalized 512-D CLIP image vectors.
+\end{itemize}
+
+Both collections use cosine distance and live in the same persistent Chroma
+directory.
+
+\subsection{Persistent indexing}
+
+The build validates dimensions when each model initializes and again before
+every Chroma upsert. IDs derive from stable source identifiers, so reruns update
+the same records. Rebuild mode deletes only the two Lab 04 collections and
+leaves unrelated collections untouched. Generated index files live below
+\texttt{data/indexes/}, which Git ignores.
+
+\subsection{Run Lab 04}
+
+\begin{lstlisting}[language=bash]
+# Small CPU smoke test
+build-multimodal-index --limit 10
+
+# Full persistent index
+build-multimodal-index
+\end{lstlisting}
+
+\subsection{Verification}
+
+After indexing, the program checks the collection counts. The example also
+performs a restaurant text query and a cross-modal text-to-image query.
+Offline tests replace both neural models with deterministic unit-vector
+embedders, allowing document construction, shape validation, Chroma persistence,
+and retrieval to be tested without downloading model weights.
+
+\section{Lab 05: Similarity Retrieval with Metadata Filtering}
+
+\subsection{Goal}
+
+The fifth lab uses the persistent vector collections from Lab 04. It combines
+nearest-neighbor search with exact metadata constraints and demonstrates both
+text-to-text and image-to-image retrieval.
+
+\subsection{Opening the existing database}
+
+The application opens \texttt{restaurant\_articles} and
+\texttt{food\_images} from \texttt{data/indexes/multimodal}. Missing collection
+names are treated as errors instead of silently creating empty collections. It
+also checks that both collections contain records before loading the neural
+models.
+
+The implementation uses the public \texttt{langchain-chroma} interface.
+It avoids direct access to the private \texttt{\_collection} attribute, which
+is not part of LangChain's compatibility contract.
+
+\subsection{Demo 1: Restaurant similarity without filtering}
+
+The query ``cozy restaurant with noodles and warm atmosphere'' is encoded with
+the same normalized 384-dimensional Sentence-Transformers model used by Lab 04.
+Chroma compares the query vector with \texttt{restaurant\_articles} and returns
+the five closest documents with their cosine distances and metadata.
+
+\subsection{Demo 2: Restaurant similarity with a location filter}
+
+The second query asks for handmade pasta and a romantic dinner. A
+\texttt{location} constraint is applied alongside vector similarity. The
+example prefers Pasadena but first reads the values stored in the collection.
+If Pasadena is absent, it selects a real location rather than issuing a filter
+that can never match.
+
+Metadata filtering is a hard constraint: Chroma searches for nearest neighbors
+only among records whose metadata satisfies the filter. A valid query may
+therefore return fewer than the requested five records or no records at all.
+
+\subsection{Demo 3: Image-to-image similarity}
+
+The user selects an indexed recipe through \texttt{QUERY\_INDEX}. The program
+reads its \texttt{image\_path} metadata, displays a thumbnail, and embeds the
+pixels with the normalized 512-dimensional CLIP image encoder. That vector
+queries \texttt{food\_images}.
+
+An optional cuisine filter uses the selected image's own cuisine, ensuring the
+constraint exists. Retrieved metadata points back to the source images, so the
+result thumbnails can be inspected visually.
+
+\subsection{Result interpretation}
+
+Each result is represented as a \texttt{RetrievalHit} containing an ID, document
+text, metadata, and distance. The formatter displays cuisine, location, source,
+distance, and a shortened content preview. Because the collections use cosine
+distance, lower values indicate closer matches.
+
+\subsection{Run Lab 05}
+
+\begin{lstlisting}[language=bash]
+# Build the prerequisite index.
+build-multimodal-index --limit 10
+
+# Open as Python notebook cells.
+examples/05_similarity_retrieval_with_metadata_filtering.py
+\end{lstlisting}
+
+\subsection{Testing}
+
+Offline tests construct real temporary Chroma collections with deterministic
+unit vectors. They verify collection loading, location filtering, fallback to
+existing metadata values, cuisine-filtered image retrieval, query-index bounds,
+and empty-result formatting.
+
+\section{Lab 06: Multimodal Similarity Fusion and Ranking}
+
+\subsection{Goal}
+
+The sixth lab combines candidates retrieved from the restaurant-text and
+recipe-image collections into one recommendation feed. Because the two models
+produce unrelated score distributions, raw distances are not compared
+directly.
+
+\subsection{Fusion procedure}
+
+\begin{enumerate}
+  \item Retrieve restaurant articles with a Sentence-Transformers query.
+  \item Retrieve recipe images with the CLIP text encoder.
+  \item Convert cosine distance to similarity using \(s = 1 - d\).
+  \item Min-max normalize similarities inside each modality.
+  \item Multiply text scores by \(w_{\mathrm{text}}\) and image scores by
+        \(w_{\mathrm{image}}\).
+  \item Mix the candidates and sort by descending fused score.
+\end{enumerate}
+
+Weights are normalized to sum to one. Negative weights and an all-zero
+configuration are invalid.
+
+\subsection{Constant-score handling}
+
+Min-max normalization normally divides by the difference between maximum and
+minimum. A single-result filtered pool has a zero difference. Lab 06 assigns a
+normalized score of 1.0 to constant nonempty pools, preserving valid candidates
+instead of erasing their contribution.
+
+\subsection{Metadata-filtered fusion}
+
+Demo 2 constrains articles by an existing location and images by their source.
+A strict filter can reduce either candidate pool below the requested size.
+Fusion uses the available results and never pads the ranking with nonmatching
+records.
+
+\subsection{Weight tuning}
+
+Demo 3 compares article-heavy, balanced, and image-heavy settings. Each output
+row displays its modality score and weighted fused score, making the ranking
+shift inspectable.
+
+\subsection{Interpretation}
+
+This is weighted candidate-pool fusion. Restaurant articles and recipe images
+do not share an entity identifier, so the lab does not claim to fuse features
+of the same object. True entity-level fusion would require an explicit
+cross-domain relationship.
+
+\section{Lab 07: Design Specialized Recommendation Agents}
+
+\subsection{Goal}
+
+The seventh lab defines six standalone specialists that will later form a
+collaborative recommendation system. It focuses on clear responsibilities and
+prompt/task contracts rather than workflow orchestration.
+
+\subsection{The six specialists}
+
+\begin{itemize}
+  \item \textbf{User Profile Generator}: extracts preferences, restrictions,
+        budget, and dining patterns.
+  \item \textbf{RAG Retriever}: obtains grounded restaurant, recipe, and image
+        evidence from the multimodal index.
+  \item \textbf{Food Trend Analyst}: evaluates current and emerging culinary
+        signals.
+  \item \textbf{Food Style Expert}: analyzes cuisines, cooking methods, regional
+        traditions, and flavor profiles.
+  \item \textbf{Nutrition Expert}: screens allergens, dietary compatibility,
+        health goals, and unknowns.
+  \item \textbf{Recommendation Expert}: synthesizes specialist evidence into a
+        ranked final recommendation.
+\end{itemize}
+
+\subsection{Role, goal, and backstory}
+
+Every agent has a concise role, a specific goal, and a backstory that calibrates
+expertise and tone. An operating contract requires each agent to stay within
+its specialty, distinguish evidence from assumptions, and produce output usable
+by another specialist.
+
+\subsection{Prompt patterns}
+
+Agents that will gather evidence or use tools receive ReAct-style instructions.
+They are told to use actions and observations internally while returning concise
+conclusions and evidence rather than hidden chain-of-thought. Profile extraction
+and recommendation synthesis use few-shot examples because stable output
+patterns are especially valuable there.
+
+\subsection{Task contracts}
+
+Each task declares a description, expected output, context keys, and dependency
+IDs. The dependencies document the future workflow without executing it. A
+catalog validator checks uniqueness and ensures every dependency can be
+resolved.
+
+\subsection{LangChain construction}
+
+The \texttt{create\_specialist\_agent} function passes a model, optional tools,
+and the rendered system prompt to modern LangChain
+\texttt{create\_agent}. Each result is a standalone graph. A deterministic fake
+chat model smoke-tests the Food Style Expert without network access.
+
+\subsection{Screenshot artifact}
+
+The required Food Style Expert goal screenshot is stored as
+\texttt{docs/screenshots/M3L1\_food\_style\_expert\_goal.jpg}.
+
+\section{Lab 08: Multi-Agent Recommendation Workflow}
+
+\subsection{Goal}
+
+The eighth lab connects the six standalone specialists in a stateful LangGraph.
+Profile generation and retrieval run sequentially. Trend, food-style, and
+nutrition analysis fan out in parallel. Recommendation synthesis begins only
+after all three branches converge.
+
+\subsection{Shared state}
+
+\texttt{AgentState} tracks user input, profile, grounded restaurant and recipe
+candidates, specialist analyses, recommendations, errors, and a phase marker.
+Nodes return partial state updates instead of mutating the incoming dictionary.
+Parallel branches write distinct fields. The error list has an append reducer,
+allowing multiple failures from one super-step to be preserved.
+
+\subsection{Purpose of workflow\_step}
+
+\texttt{workflow\_step} records the latest completed phase: start, profile
+generated, candidates retrieved, analysis complete, or complete. It supports
+progress displays, logging, debugging, conditional routing, and future
+checkpoint/resume behavior. Graph edges remain the source of execution order;
+the field is observable state rather than the workflow engine.
+
+\subsection{Grounded RAG phase}
+
+The production candidate retriever queries the persistent Lab 04 collections
+with a query built from the structured user profile. This replaces simulated
+retrieval with source IDs, metadata, content, and distances from the actual
+vector database.
+
+\subsection{Native parallel analysis}
+
+Three edges leave the retrieval node, placing trend, style, and nutrition nodes
+in the same LangGraph super-step. A fan-in edge waits for all three nodes before
+marking analysis complete and invoking synthesis. No manual thread pool or
+shared-dictionary mutation is required.
+
+\subsection{Structured specialist output}
+
+Dedicated Pydantic models validate profile, trend, style, nutrition, and final
+recommendation objects. A failed specialist adds a scoped error and safe empty
+output. This lets the graph expose partial failure and still reach a final,
+inspectable state.
+
+\subsection{Recommendation evaluation}
+
+The evaluation function reports restaurant and recipe counts, extracted
+restrictions and cuisines, reasoning coverage, dietary-note coverage, warnings,
+and a simple structural score. The score is a completeness smoke test, not a
+claim of nutritional safety or subjective recommendation quality.
+
+\subsection{Run Lab 08}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[agents,openai,dev]"
+python examples/08_multi_agent_recommendation_workflow.py
+\end{lstlisting}
+
+The default example uses deterministic fakes. A production run can inject
+\texttt{ChatOpenAI} and the real multimodal candidate retriever.
+
+\section{Lab 09: Gradio Recommendation Chatbot}
+
+\subsection{Goal}
+
+The ninth lab gives the Lab 08 workflow a browser interface. Users can request
+restaurants, recipes, or both in natural language. The interface routes the
+message, extracts preferences, invokes the recommendation graph, and renders
+reasoning and dietary notes as readable Markdown.
+
+\subsection{Dependency compatibility}
+
+The original assignment pins Gradio 4.29 and an older LangChain stack. Those
+packages predate the LangGraph APIs used in Lab 08. The repository instead
+defines a \texttt{ui} extra for Gradio 6 and keeps the modern \texttt{agents}
+and \texttt{openai} extras. Gradio resolves compatible FastAPI, Starlette, and
+Jinja versions rather than forcing mutually incompatible transitive pins.
+
+\subsection{Intent and preference interpretation}
+
+Every message is classified as restaurant, recipe, both, clarification, or
+database. A structured preference profile contains cuisines, dietary
+restrictions, occasion, price, flavors, and other requirements. The production
+interpreter accepts a LangChain chat model. A deterministic rule-based
+interpreter supports offline tests and a zero-cost demonstration.
+
+\subsection{Session state}
+
+\texttt{gr.State} stores accumulated preferences and the last intent for one
+browser session. Newly stated cuisines, restrictions, and flavors are merged
+without duplicates. More specific occasion and price values replace unspecified
+ones. Gradio removes session state when the browser session ends; the chat does
+not persist user preferences to the catalog.
+
+\subsection{Workflow integration}
+
+\texttt{RecommendationChatService} receives any compiled workflow with an
+\texttt{invoke} method. It creates the standard Lab 08 initial state and passes
+the current request plus known session preferences into the graph. The final
+restaurant and recipe records are filtered according to intent and displayed
+with cuisine, reasoning, and dietary notes. Recorded agent errors produce a
+visible provisional-result warning.
+
+\subsection{Catalog management}
+
+Separate tabs add validated restaurant and recipe contributions. The catalog
+uses Pydantic models, a process lock, and atomic file replacement. Updates and
+deletions require an exact stable ID and an explicit confirmation checkbox.
+Catalog edits change source data only; the interface tells the operator to
+rebuild the multimodal index before expecting new records in retrieval.
+
+\subsection{Local deployment}
+
+The example binds to the loopback address and uses \texttt{share=False}, so it
+does not expose catalog write controls through a public Gradio tunnel. A real
+deployment should add authentication, authorization, rate limits, durable
+storage, logging, and CSRF-aware deployment controls.
+
+\subsection{Run Lab 09}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[agents,openai,ui,dev]"
+python examples/09_gradio_recommendation_chatbot.py
+python examples/09_gradio_recommendation_chatbot.py --launch
+\end{lstlisting}
+
+The required preference-extraction screenshot is stored as
+\texttt{docs/screenshots/M3L3\_preference\_extraction\_test.jpg}.
+
+\section{Lab 10: Connoisseur MCP Data Server}
+
+\subsection{Goal}
+
+The tenth lab converts data and search behavior from earlier modules into a
+Model Context Protocol server. MCP clients can discover the same resource and
+tools without knowing how the files are stored or rewriting the search logic.
+
+\subsection{Server surface}
+
+The server is named \texttt{Connoisseur-Server}. It exposes the raw California
+Culinary Map through the resource URI
+\texttt{culinary-map://california}. Three tools are registered:
+
+\begin{itemize}
+  \item \texttt{get\_restaurant\_info}: bidirectional partial-name lookup in
+        structured restaurant records;
+  \item \texttt{recommend\_by\_vibe}: structured vibe/description lookup plus
+        raw-map paragraph search; and
+  \item \texttt{get\_review}: retrieval of one augmented review with image
+        description and visit date.
+\end{itemize}
+
+\subsection{Data layer}
+
+\texttt{CulinaryDataStore} resolves the raw map, structured restaurant JSON, and
+augmented review JSON from \texttt{data/raw}. The
+\texttt{IBM\_MCP\_DATA\_DIR} environment variable can select another directory.
+Loaders reject missing files and JSON values that are not arrays of objects.
+
+\subsection{Search contracts}
+
+Every tool returns an indented JSON string. Successful restaurant lookup
+includes \texttt{status}, \texttt{count}, and \texttt{results}. Failed
+restaurant and review lookups return \texttt{status: not\_found} and an
+actionable message. Empty query strings are rejected so they cannot accidentally
+match every record.
+
+The vibe tool uses two-pass lexical retrieval rather than claiming vector
+semantics. Structured fields provide precise matches; raw paragraphs recover
+descriptive wording that was not represented by a formal tag.
+
+\subsection{Protocol verification}
+
+Unit tests use FastMCP's in-memory client to discover all three tools and the
+resource, call a tool, and read the raw map. The separate \texttt{test.py}
+program uses the lower-level MCP client to start \texttt{server.py} as a child
+process over stdio. It initializes the session, verifies discovery, calls
+\texttt{get\_restaurant\_info} with \texttt{Iron}, and prints the returned
+\texttt{Iron \& Embers} record.
+
+\subsection{Run Lab 10}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[mcp,dev]"
+# Download the three course files using the README commands.
+python test.py
+\end{lstlisting}
+
+The required successful-query screenshot is stored as
+\texttt{docs/screenshots/M4L1\_Configure\_Tools\_Data\_MCP\_Server.jpg}.
+
+\section{Lab 11: Connoisseur MCP Client}
+
+\subsection{Goal}
+
+The eleventh lab builds the client half of the MCP application. It launches the
+Lab 10 server as a subprocess, initializes a session over stdio, discovers the
+available tools and resources, advertises a project root, implements delegated
+sampling, and calls every culinary tool.
+
+\subsection{Portable subprocess configuration}
+
+The client uses the current Python executable and an absolute path to
+\texttt{server.py}. This avoids relying on the current working directory or on
+which interpreter a shell command named \texttt{python} happens to select.
+Each demonstration opens a fresh subprocess and session, matching the lifecycle
+shown in the course.
+
+\subsection{Discovery}
+
+\texttt{verify\_connection} requires the exact tool set
+\texttt{get\_restaurant\_info}, \texttt{recommend\_by\_vibe}, and
+\texttt{get\_review}, plus the resource
+\texttt{culinary-map://california}. A missing or unexpected component raises an
+error. The successful report prints the tools, resource, and client root between
+the required screenshot markers.
+
+\subsection{Roots}
+
+The client advertises the repository through a \texttt{file://} URI generated by
+\texttt{Path.as\_uri}, which safely encodes spaces. The MCP 1.25 callback accepts
+a request context and returns \texttt{ListRootsResult}. Roots communicate the
+relevant and intended filesystem scope; they are not an operating-system access
+control boundary by themselves. Servers must still honor the declaration and
+validate requested paths.
+
+\subsection{Sampling}
+
+The sampling callback receives a text request from the server, uses the
+client-side Anthropic SDK, and returns a \texttt{CreateMessageResult}. The
+Anthropic client is constructed only when sampling is actually requested, so
+tool discovery and normal search calls do not require an API key. The callback
+respects \texttt{maxTokens}, rejects non-text content, and moves the synchronous
+SDK call off the async event loop.
+
+Sampling sends delegated prompt text to an external model provider. Production
+clients should add consent, data classification, audit logging, and model-policy
+controls before enabling it for sensitive content.
+
+\subsection{Tool demonstrations}
+
+The shared \texttt{call\_tool} helper initializes a session with roots and
+sampling callbacks, invokes a named tool, rejects protocol errors or unexpected
+content shapes, and parses the returned JSON object. The main program completes
+the assignment TODOs by calling restaurant lookup, moody-vibe recommendation,
+review retrieval, and then connection verification.
+
+\subsection{Run Lab 11}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[mcp,dev]"
+python client.py
+\end{lstlisting}
+
+The required discovery screenshot is stored as
+\texttt{docs/screenshots/M4L2\_Build\_Test\_MCP\_Client.jpg}.
+
+\section{Lab 12: Full MCP Host Application}
+
+\subsection{Goal}
+
+The twelfth lab completes the MCP capstone with a Gradio host. The host launches
+the culinary server, discovers its tools at runtime, binds their schemas to an
+IBM Granite model on watsonx.ai, and runs a bounded ReAct loop that alternates
+between model decisions and MCP observations.
+
+\subsection{Runtime discovery and schema bridging}
+
+\texttt{PythonStdioTransport} manages the local server subprocess. The host calls
+\texttt{list\_tools} for every request and converts each MCP name, description,
+and input schema into the function-tool structure accepted by LangChain
+\texttt{bind\_tools}. Tool schemas are therefore sourced from the protocol
+rather than duplicated in host code.
+
+\subsection{System prompt}
+
+The completed system prompt names the assistant Connoisseur Companion and
+explains that it has access to California restaurant data. It documents the
+roles of \texttt{get\_restaurant\_info}, \texttt{recommend\_by\_vibe}, and
+\texttt{get\_review}. It also requires restaurant facts to come from tools,
+forbids invented records, and asks the model to distinguish retrieved facts from
+general advice.
+
+\subsection{Bounded ReAct loop}
+
+Each iteration invokes the model with the system message, reconstructed chat
+history, current request, and prior tool observations. A message with no tool
+calls is the final answer. Otherwise, the host validates the requested tool and
+arguments, executes it over MCP, appends a \texttt{ToolMessage}, and repeats.
+
+The ten-iteration limit prevents runaway call cycles. Unknown tools, invalid
+argument shapes, MCP errors, empty observations, and empty final model content
+have explicit fallback behavior.
+
+\subsection{WatsonX integration}
+
+A fresh \texttt{ChatWatsonx} instance is created per turn with
+\texttt{ibm/granite-4-h-small} as the default model. Project ID, API key,
+endpoint, and optional model override come from environment configuration.
+Model construction is lazy, allowing the interface and offline tests to run
+without credentials.
+
+\subsection{Streaming interface}
+
+The Gradio handler first yields the user message and a \texttt{Thinking...}
+placeholder, then replaces the placeholder with the final answer. The first
+history value is copied before yielding so later mutation cannot alter an
+already-streamed frame. Three quick-start buttons exercise restaurant lookup,
+vibe search, and exploratory dining requests.
+
+\subsection{Public sharing}
+
+Unlike the unconditional public link in the course snippet, the application
+binds to \texttt{127.0.0.1} and disables sharing by default. Public access can
+trigger paid model calls and expose tool behavior. Setting
+\texttt{GRADIO\_SHARE=true} is an explicit opt-in; a production deployment still
+requires authentication, authorization, rate limits, quotas, and audit logs.
+
+\subsection{Run Lab 12}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[host,ui,mcp,dev]"
+export WATSONX_PROJECT_ID="..."
+export WATSONX_APIKEY="..."
+python app.py
+\end{lstlisting}
+
+The required full-interface screenshot is stored as
+\texttt{docs/screenshots/M4L3\_Design\_LLM\_MCP\_Host.jpg}.
+
+\section{How the Labs Connect}
+
+Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
+records with information extracted from images. Lab 03 adds a safe human
+interface for maintaining the structured restaurant collection. Lab 04 embeds
+the text and pixels and stores them in persistent, retrieval-ready indexes.
+Lab 05 queries those indexes with optional business constraints and makes the
+retrieved evidence inspectable. Lab 06 combines candidates through transparent
+weighted ranking. Lab 07 defines the specialist intelligence that will interpret
+those results. Lab 08 connects the specialists through sequential and parallel
+state transitions and evaluates their final output. Lab 09 exposes that graph
+through a conversational interface and adds guarded contribution forms. Lab 10
+packages the shared culinary data layer as a discoverable MCP service for future
+agents. Lab 11 completes the pair with discovery, client-declared roots,
+delegated sampling, and protocol-driven tool calls. Lab 12 adds a WatsonX ReAct
+host that selects those tools dynamically and serves the result through Gradio.
+Together they provide stable identifiers, structured metadata, visual captions,
+controlled updates, semantic retrieval, fusion, modular agent roles,
+orchestration, an interactive delivery layer, and a complete standard-protocol
+client--server--host application.
+
+The next retrieval-augmented generation lab can chunk and embed these fields,
+store them in a vector index, retrieve relevant evidence for a user's question,
+and produce grounded recommendations. Later agentic labs can add planning and
+tools around that retrieval layer.
+
+\section{Repository and Reproducibility}
+
+The complete source is available at:
+
+\begin{center}
+\url{https://github.com/Djordje3002/ibm-rag-agentic-ai-showcase}
+\end{center}
+
+Unit tests use fake model functions, so validation, prompt flow, path handling,
+and augmentation logic can be checked without cloud credentials. Actual model
+inference remains an explicit, credentialed step.
+
+\end{document}
