@@ -19,6 +19,7 @@ experience.
 [Explore the labs](#the-12-lab-journey) ·
 [See the architecture](#system-architecture) ·
 [Run the project](#quick-start) ·
+[View the certificate](#certification) ·
 [Read the technical guide](docs/lab-guide.tex)
 
 </div>
@@ -460,6 +461,24 @@ Natural next steps include:
 - [Lab 10 — MCP server](projects/10-connoisseur-mcp-server.md)
 - [Lab 11 — MCP client](projects/11-connoisseur-mcp-client.md)
 - [Lab 12 — Full MCP application](projects/12-full-mcp-host-application.md)
+
+## Certification
+
+<div align="center">
+
+<a href="https://www.coursera.org/account/accomplishments/verify/71BDIYVPJ82H">
+  <img
+    src="docs/certificates/ibm-rag-agentic-ai-capstone-certificate.png"
+    alt="IBM RAG and Agentic AI Capstone Project certificate awarded to Djordje"
+    width="900"
+  />
+</a>
+
+**IBM RAG and Agentic AI Capstone Project**<br />
+Completed through Coursera on July 5, 2026 ·
+[Verify credential](https://www.coursera.org/account/accomplishments/verify/71BDIYVPJ82H)
+
+</div>
 
 ## Responsible use
 
