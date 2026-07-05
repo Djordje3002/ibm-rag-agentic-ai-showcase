@@ -3,8 +3,8 @@
 Hands-on projects from IBM's RAG and Agentic AI coursework, rebuilt as a
 portfolio-ready collection of reproducible AI engineering patterns.
 
-> **Status:** Labs 01 through 11 are ready, from structured extraction through
-> a complete MCP client–server application.
+> **Status:** Labs 01 through 12 are ready, completing the full MCP application
+> with a WatsonX ReAct host and Gradio interface.
 
 ## Projects
 
@@ -21,6 +21,7 @@ portfolio-ready collection of reproducible AI engineering patterns.
 | 09 | [Interactive recommendation chatbot](projects/09-gradio-recommendation-chatbot.md) | Gradio 6, intent routing, session preferences, workflow integration, catalog CRUD | Complete |
 | 10 | [Connoisseur MCP data server](projects/10-connoisseur-mcp-server.md) | FastMCP, resources, typed tools, stdio transport, protocol testing | Complete |
 | 11 | [Connoisseur MCP client](projects/11-connoisseur-mcp-client.md) | Discovery, roots, Anthropic sampling, stdio subprocesses, tool calls | Complete |
+| 12 | [Full Connoisseur MCP application](projects/12-full-mcp-host-application.md) | WatsonX, runtime tool discovery, ReAct loop, Gradio streaming UI | Complete |
 
 A printable, chapter-by-chapter explanation is maintained in
 [the LaTeX lab guide](docs/lab-guide.tex).
@@ -95,10 +96,12 @@ ignored by Git so that the repository stays small and reproducible.
 │   ├── chatbot_interface.py      # Gradio chat service and catalog UI
 │   ├── mcp_server.py             # Culinary resource and search tools
 │   ├── mcp_client.py             # Discovery, roots, sampling, and demos
+│   ├── mcp_host.py               # WatsonX ReAct loop and Gradio host
 │   └── cli.py                   # Reproducible command-line entry point
 ├── server.py                    # Course-compatible MCP server entry point
 ├── test.py                      # Independent stdio MCP client verification
 ├── client.py                    # Complete MCP client demonstration
+├── app.py                       # Full MCP host application
 └── tests/                       # Offline unit tests with a fake LLM
 ```
 
@@ -147,6 +150,19 @@ python client.py
 The client calls all three tools and then prints the discovered tools, resource,
 and encoded project root. `ANTHROPIC_API_KEY` is needed only if a server
 actually delegates a sampling request to the client.
+
+Run the complete Lab 12 host:
+
+```bash
+pip install -e ".[host,ui,mcp,dev]"
+export WATSONX_PROJECT_ID="..."
+export WATSONX_APIKEY="..."
+python app.py
+```
+
+The app is local-only by default. Set `GRADIO_SHARE=true` only when you
+intentionally want a temporary public Gradio link and understand that the
+endpoint can trigger model and tool usage.
 
 Lab 04 uses larger local ML dependencies. Install a CPU build of PyTorch first
 on Linux, then install the vector extra:

@@ -829,6 +829,79 @@ python client.py
 The required discovery screenshot is stored as
 \texttt{docs/screenshots/M4L2\_Build\_Test\_MCP\_Client.jpg}.
 
+\section{Lab 12: Full MCP Host Application}
+
+\subsection{Goal}
+
+The twelfth lab completes the MCP capstone with a Gradio host. The host launches
+the culinary server, discovers its tools at runtime, binds their schemas to an
+IBM Granite model on watsonx.ai, and runs a bounded ReAct loop that alternates
+between model decisions and MCP observations.
+
+\subsection{Runtime discovery and schema bridging}
+
+\texttt{PythonStdioTransport} manages the local server subprocess. The host calls
+\texttt{list\_tools} for every request and converts each MCP name, description,
+and input schema into the function-tool structure accepted by LangChain
+\texttt{bind\_tools}. Tool schemas are therefore sourced from the protocol
+rather than duplicated in host code.
+
+\subsection{System prompt}
+
+The completed system prompt names the assistant Connoisseur Companion and
+explains that it has access to California restaurant data. It documents the
+roles of \texttt{get\_restaurant\_info}, \texttt{recommend\_by\_vibe}, and
+\texttt{get\_review}. It also requires restaurant facts to come from tools,
+forbids invented records, and asks the model to distinguish retrieved facts from
+general advice.
+
+\subsection{Bounded ReAct loop}
+
+Each iteration invokes the model with the system message, reconstructed chat
+history, current request, and prior tool observations. A message with no tool
+calls is the final answer. Otherwise, the host validates the requested tool and
+arguments, executes it over MCP, appends a \texttt{ToolMessage}, and repeats.
+
+The ten-iteration limit prevents runaway call cycles. Unknown tools, invalid
+argument shapes, MCP errors, empty observations, and empty final model content
+have explicit fallback behavior.
+
+\subsection{WatsonX integration}
+
+A fresh \texttt{ChatWatsonx} instance is created per turn with
+\texttt{ibm/granite-4-h-small} as the default model. Project ID, API key,
+endpoint, and optional model override come from environment configuration.
+Model construction is lazy, allowing the interface and offline tests to run
+without credentials.
+
+\subsection{Streaming interface}
+
+The Gradio handler first yields the user message and a \texttt{Thinking...}
+placeholder, then replaces the placeholder with the final answer. The first
+history value is copied before yielding so later mutation cannot alter an
+already-streamed frame. Three quick-start buttons exercise restaurant lookup,
+vibe search, and exploratory dining requests.
+
+\subsection{Public sharing}
+
+Unlike the unconditional public link in the course snippet, the application
+binds to \texttt{127.0.0.1} and disables sharing by default. Public access can
+trigger paid model calls and expose tool behavior. Setting
+\texttt{GRADIO\_SHARE=true} is an explicit opt-in; a production deployment still
+requires authentication, authorization, rate limits, quotas, and audit logs.
+
+\subsection{Run Lab 12}
+
+\begin{lstlisting}[language=bash]
+pip install -e ".[host,ui,mcp,dev]"
+export WATSONX_PROJECT_ID="..."
+export WATSONX_APIKEY="..."
+python app.py
+\end{lstlisting}
+
+The required full-interface screenshot is stored as
+\texttt{docs/screenshots/M4L3\_Design\_LLM\_MCP\_Host.jpg}.
+
 \section{How the Labs Connect}
 
 Lab 01 creates clean, validated restaurant records. Lab 02 enriches textual
@@ -843,11 +916,12 @@ state transitions and evaluates their final output. Lab 09 exposes that graph
 through a conversational interface and adds guarded contribution forms. Lab 10
 packages the shared culinary data layer as a discoverable MCP service for future
 agents. Lab 11 completes the pair with discovery, client-declared roots,
-delegated sampling, and protocol-driven tool calls.
+delegated sampling, and protocol-driven tool calls. Lab 12 adds a WatsonX ReAct
+host that selects those tools dynamically and serves the result through Gradio.
 Together they provide stable identifiers, structured metadata, visual captions,
 controlled updates, semantic retrieval, fusion, modular agent roles,
 orchestration, an interactive delivery layer, and a complete standard-protocol
-client--server pair.
+client--server--host application.
 
 The next retrieval-augmented generation lab can chunk and embed these fields,
 store them in a vector index, retrieve relevant evidence for a user's question,

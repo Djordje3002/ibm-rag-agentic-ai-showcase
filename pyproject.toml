@@ -49,6 +49,9 @@ mcp = [
     "mcp==1.25.0",
     "anthropic==0.84.0",
 ]
+host = [
+    "langchain-ibm==1.0.4",
+]
 dev = [
     "pytest>=8,<10",
     "ruff>=0.12,<1",
@@ -60,6 +63,7 @@ restaurant-db = "ibm_rag_agentic_showcase.restaurant_database:main"
 build-multimodal-index = "ibm_rag_agentic_showcase.multimodal_vector_index:main"
 connoisseur-mcp = "ibm_rag_agentic_showcase.mcp_server:main"
 connoisseur-client = "ibm_rag_agentic_showcase.mcp_client:main"
+connoisseur-app = "ibm_rag_agentic_showcase.mcp_host:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
